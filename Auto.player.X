@@ -1,0 +1,1530 @@
+--[[
+  🥁 AUTO DRUM [REWORKED] v8.5
+  16 Songs · 410×260 · Daily Key System
+  Key syncs with website — changes every 24h
+  Format: XXXX-XXXX-XXXX-XXXX
+  made by me n team
+]]
+
+if _G._AD then _G._AD=false;task.wait(.6)end
+local plr=game:GetService("Players").LocalPlayer
+local pg=plr:WaitForChild("PlayerGui")
+for _,n in ipairs({"DG","DK"})do if pg:FindFirstChild(n)then pg[n]:Destroy()end end
+task.wait(.1)
+
+local VIM=game:GetService("VirtualInputManager")
+local UIS=game:GetService("UserInputService")
+local TS=game:GetService("TweenService")
+
+-- ═══════════════════════════════
+-- COLORS
+-- ═══════════════════════════════
+local C={
+    bg=Color3.fromRGB(234,236,241),card=Color3.fromRGB(245,246,250),
+    dark=Color3.fromRGB(32,34,44),t1=Color3.fromRGB(28,30,40),
+    t2=Color3.fromRGB(88,90,108),t3=Color3.fromRGB(142,144,160),
+    t4=Color3.fromRGB(178,180,192),acc=Color3.fromRGB(255,162,32),
+    grn=Color3.fromRGB(48,168,62),red=Color3.fromRGB(192,46,46),
+    blu=Color3.fromRGB(52,112,210),div=Color3.fromRGB(212,214,224),
+    tog=Color3.fromRGB(192,196,210),w=Color3.new(1,1,1),
+    pop=Color3.fromRGB(255,90,40),spc=Color3.fromRGB(200,160,30),
+}
+
+-- ═══════════════════════════════════════
+-- DAILY KEY SYSTEM
+-- Same algorithm as website generator!
+-- Format: XXXX-XXXX-XXXX-XXXX
+-- Changes every 24 hours
+-- ═══════════════════════════════════════
+local CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+local function genDailyKey(dayOffset)
+    dayOffset = dayOffset or 0
+    local t = os.time() + (dayOffset * 86400)
+    local d = tonumber(os.date("%d", t))
+    local m = tonumber(os.date("%m", t))
+    local y = tonumber(os.date("%Y", t))
+
+    -- Seed from date (must match website JS exactly)
+    local seed = d * 2731 + m * 1487 + y * 317 + 9973
+
+    -- LCG pseudo-random (same constants as website)
+    local function nxt()
+        seed = (seed * 16807 + 12345) % 2147483647
+        return seed
+    end
+
+    local key = ""
+    for i = 0, 15 do
+        if i > 0 and i % 4 == 0 then key = key .. "-" end
+        local idx = (nxt() % #CHARSET) + 1
+        key = key .. CHARSET:sub(idx, idx)
+    end
+    return key
+end
+
+local function ckK(input)
+    local k = input:upper():gsub("%s+", "")
+    -- Check today
+    if k == genDailyKey(0) then return true end
+    -- Check yesterday (timezone tolerance)
+    if k == genDailyKey(-1) then return true end
+    -- Check tomorrow (timezone tolerance)
+    if k == genDailyKey(1) then return true end
+    return false
+end
+
+local isPrem = _G._DP or false
+local FS = {1, 8, 9} -- Free songs: Eyeless, Duality, Before I Forget
+local function isF(i)
+    for _, v in ipairs(FS) do if v == i then return true end end
+    return false
+end
+
+-- ═══════════════════════════════
+-- KEYBINDS + GM MAP
+-- ═══════════════════════════════
+local K = {
+    Ki=Enum.KeyCode.B, Ki2=Enum.KeyCode.N,
+    Sn=Enum.KeyCode.C, Sn2=Enum.KeyCode.V, SnS=Enum.KeyCode.S,
+    HC=Enum.KeyCode.X, HO=Enum.KeyCode.Z,
+    T1=Enum.KeyCode.D, T1B=Enum.KeyCode.F,
+    T2=Enum.KeyCode.G, T2B=Enum.KeyCode.H,
+    T3=Enum.KeyCode.J, T3B=Enum.KeyCode.K,
+    CL=Enum.KeyCode.E, CR=Enum.KeyCode.R,
+    Rd=Enum.KeyCode.U, RB=Enum.KeyCode.I,
+    Ch=Enum.KeyCode.O, Sp=Enum.KeyCode.W,
+    Cb=Enum.KeyCode.A,
+}
+local GM = {
+    [35]=K.Ki,[36]=K.Ki,[37]=K.SnS,[38]=K.Sn,[39]=K.Sn,[40]=K.Sn,
+    [41]=K.T3,[43]=K.T3,[42]=K.HC,[44]=K.HC,[45]=K.T2,[47]=K.T2,
+    [46]=K.HO,[48]=K.T1,[50]=K.T1,[49]=K.CL,[57]=K.CR,
+    [51]=K.Rd,[59]=K.Rd,[52]=K.Ch,[53]=K.RB,
+    [54]=K.HC,[55]=K.Sp,[56]=K.Cb,[58]=K.Sp,
+}
+
+-- ═══════════════════════════════
+-- 16 PRESETS (p = tag badge)
+-- ═══════════════════════════════
+local PS = {
+    {n="Eyeless",a="Slipknot",t="SK",c=Color3.fromRGB(175,38,38),p="🔥",
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Eyeless_Without_metronome_added_1773099208008.mid"},
+    {n="SIC",a="Slipknot",t="SK",c=Color3.fromRGB(155,48,48),p="🔥",
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/sic__Slipknot_1773144622338.mid"},
+    {n="Nightmare",a="Avenged Sevenfold",t="A7X",c=Color3.fromRGB(48,48,152),
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Nightmare__Avenged_Sevenfold_1773149185671.mid"},
+    {n="People=Shit",a="Slipknot",t="SK",c=Color3.fromRGB(138,58,28),
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/People__Shit__Slipknot_1773151767980.mid"},
+    {n="Holy Wars",a="Megadeth",t="MG",c=Color3.fromRGB(38,112,40),
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Holy_Wars_The_Punishment_Due__Megadeth_Drums_1773181360476.mid"},
+    {n="Post American",a="Megadeth",t="MG",c=Color3.fromRGB(40,105,50),
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Post_American_World__Megadeth_Drum_Set_1773289236483.mid"},
+    {n="Death Fr.Within",a="Megadeth",t="MG",c=Color3.fromRGB(34,96,42),
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Death_From_Within__Megadeth_Drum_Set_1773288959748.mid"},
+    {n="Duality",a="Slipknot",t="SK",c=Color3.fromRGB(162,40,40),
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Slipknot__Duality_1773289698947.mid"},
+    {n="Before I Forget",a="Slipknot",t="SK",c=Color3.fromRGB(145,36,50),
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Slipknot__Before_I_Forget_1773291132877.mid"},
+    {n="Unsainted",a="Slipknot",t="SK",c=Color3.fromRGB(125,30,58),
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Unsainted__Slipknot_Drums_Only_1773289884120.mid"},
+    {n="Disasterpiece",a="Slipknot",t="SK",c=Color3.fromRGB(115,22,22),
+     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Slipknot__Disasterpiece_1773291889398.mid"},
+    {n="Wait And Bleed",a="Slipknot",t="SK",c=Color3.fromRGB(135,30,30),
+     u="https://github.com/rafijr1873-pixel/Auto.PlayX/raw/refs/heads/main/Wait_And_Bleed__Slipknot_1773730571749.mid"},
+    {n="Jazz Crimes",a="Jazz Solo",t="OT",c=Color3.fromRGB(180,140,40),
+     u="https://github.com/rafijr1873-pixel/Auto.PlayX/raw/refs/heads/main/Jazz_Crimes_drum_solo_1773728534948.mid"},
+    {n="Everything Freeze",a="UNDEAD CORP.",t="OT",c=Color3.fromRGB(60,20,80),
+     u="https://github.com/rafijr1873-pixel/Auto.PlayX/raw/refs/heads/main/Everything_Will_Freeze__UNDEAD_CORPERATION_DOUJIN_WORKS_1773730628821.mid"},
+    {n="STRYKE Solo",a="Drum Solo",t="OT",c=Color3.fromRGB(170,130,35),
+     u="https://github.com/rafijr1873-pixel/Auto.PlayX/raw/refs/heads/main/STRYKE_Percussion__Drum_Solo_1773728655776.mid"},
+    {n="Through Fire&Flames",a="DragonForce",t="OT",c=Color3.fromRGB(200,50,10),p="⭐",
+     u="https://github.com/rafijr1873-pixel/Auto.PlayX/raw/refs/heads/main/Dragonforce__Through_the_Fire_and_Flames_DRUMSET_1773747916038.mid"},
+}
+
+-- ═══════════════════════════════
+-- STATE
+-- ═══════════════════════════════
+_G._AD = false
+local barN, pIdx, secN, introD = 0, 1, "IDLE", true
+local RNG = Random.new(tick())
+local mObj, mLd, cSong = nil, false, ""
+local guiOn, kC, cLds = true, nil, 0
+local SP = {0.5, 0.75, 1, 1.25, 1.5, 2}
+local sI, sM = 3, 1
+local aAfk, shuf, aNxt = true, false, false
+local tH, lps, mPr, mTm = 0, 0, 0, "0:00/0:00"
+local rH, aSg = {}, nil
+local doLoad
+
+-- ═══════════════════════════════
+-- ENGINE
+-- ═══════════════════════════════
+local function hm(f)
+    return (f and RNG:NextInteger(5,15) or RNG:NextInteger(15,42)) / 1000
+        * ((RNG:NextInteger(0,1)==0) and 1 or -1)
+end
+
+local function pr(k, f)
+    if typeof(k) == "EnumItem" then k = {k} end
+    for i = 1, #k do VIM:SendKeyEvent(true, k[i], false, game) end
+    task.wait(f and RNG:NextInteger(20,40)/1000 or RNG:NextInteger(45,95)/1000)
+    for i = 1, #k do VIM:SendKeyEvent(false, k[i], false, game) end
+    tH = tH + 1
+    local n = tick()
+    rH[#rH+1] = n
+    while #rH > 0 and n - rH[1] > 3 do table.remove(rH, 1) end
+end
+
+local function nps()
+    local n = tick()
+    while #rH > 0 and n - rH[1] > 3 do table.remove(rH, 1) end
+    return math.floor(#rH / 3 * 10) / 10
+end
+
+local function ok() return _G._AD end
+
+local function br(p, s, b)
+    barN = barN + 1
+    local bs = (60 / b / (s == 16 and 4 or 2)) / sM
+    local f = s == 16
+    for i = 1, #p do
+        if not ok() then return false end
+        if p[i] then pr(p[i], f) end
+        local d = bs + hm(f) / sM
+        if d < 0.02 then d = 0.02 end
+        task.wait(d)
+    end
+    return ok()
+end
+
+local function sc(n, bs, s, b)
+    secN = n
+    for i = 1, #bs do
+        if not br(bs[i], s, b) then return false end
+    end
+    return ok()
+end
+
+-- ═══════════════════════════════
+-- MIDI PARSER
+-- ═══════════════════════════════
+local M = {}
+
+function M.parse(r)
+    if not r or #r < 14 then return nil, "Small" end
+    local p, l = 1, #r
+    local function rb()
+        if p > l then error("E") end
+        local b = string.byte(r, p); p = p + 1; return b
+    end
+    local function rn(n)
+        local v = 0; for _ = 1, n do v = v * 256 + rb() end; return v
+    end
+    local function rs(n)
+        if p + n - 1 > l then error("E") end
+        local s = r:sub(p, p + n - 1); p = p + n; return s
+    end
+    local function rv()
+        local v, c = 0, 0
+        repeat
+            local b = rb(); v = v * 128 + (b % 128); c = c + 1
+            if c > 4 then error("V") end
+        until b < 128
+        return v
+    end
+
+    local h = rs(4)
+    if h ~= "MThd" then return nil, "Not MIDI" end
+    local hl = rn(4); rn(2); local nT = rn(2); local dv = rn(2)
+    if hl > 6 then p = p + (hl - 6) end
+    if dv >= 32768 then return nil, "SMPTE" end
+    local ppq, ns, ts = dv, {}, {}
+
+    for t = 1, nT do
+        if p + 8 > l then break end
+        local th = rs(4)
+        if th ~= "MTrk" then return nil, "MTrk" end
+        local tl = rn(4); local te = p + tl
+        local at, rn2 = 0, 0
+        while p < te and p <= l do
+            local d = rv(); at = at + d
+            if p > l then break end
+            local pk = string.byte(r, p)
+            if not pk then break end
+            local st
+            if pk >= 128 then
+                st = rb()
+                if st < 0xF0 then rn2 = st end
+            else
+                st = rn2
+                if st == 0 then rb(); break end
+            end
+            local hi = math.floor(st / 16)
+            if hi == 9 then
+                local n2, v2 = rb(), rb()
+                if v2 > 0 and #ns < 30000 then
+                    ns[#ns+1] = {at, n2, v2, st % 16}
+                end
+            elseif hi == 8 or hi == 10 or hi == 11 or hi == 14 then
+                rb(); rb()
+            elseif hi == 12 or hi == 13 then
+                rb()
+            elseif st == 0xFF then
+                local mt = rb(); local ml = rv()
+                if mt == 0x51 and ml >= 3 then
+                    local us = 0
+                    for _ = 1, 3 do us = us * 256 + rb() end
+                    ts[#ts+1] = {at, us}
+                    if ml > 3 then p = p + (ml - 3) end
+                else
+                    p = p + ml
+                end
+            elseif st == 0xF0 or st == 0xF7 then
+                p = p + rv()
+            else
+                p = te
+            end
+        end
+        p = te
+    end
+
+    if #ns == 0 then return nil, "No notes" end
+    table.sort(ns, function(a, b) return a[1] < b[1] end)
+    table.sort(ts, function(a, b) return a[1] < b[1] end)
+    return ns, ts, ppq
+end
+
+function M.build(ns, ts, ppq)
+    local h9 = false
+    for _, n in ipairs(ns) do if n[4] == 9 then h9 = true; break end end
+    local dn = {}
+    for _, n in ipairs(ns) do
+        if (h9 and n[4] == 9) or not h9 then
+            local k = GM[n[2]]
+            if k then dn[#dn+1] = {t = n[1], k = k} end
+        end
+    end
+    if #dn == 0 then return nil, 0, 0, 0 end
+    if #ts == 0 or ts[1][1] ~= 0 then table.insert(ts, 1, {0, 500000}) end
+
+    local tl = {}
+    local cs, pt, pm = 0, 0, 500000
+    for _, tc in ipairs(ts) do
+        cs = cs + (tc[1] - pt) * pm / ppq / 1e6
+        tl[#tl+1] = {t = tc[1], s = cs, m = tc[2]}
+        pt = tc[1]; pm = tc[2]
+    end
+
+    local function t2s(tk)
+        local s, p2, m2 = 0, 0, 500000
+        for _, t in ipairs(tl) do
+            if t.t > tk then break end
+            s = t.s; p2 = t.t; m2 = t.m
+        end
+        return s + (tk - p2) * m2 / ppq / 1e6
+    end
+
+    local gr, tks = {}, {}
+    for _, d in ipairs(dn) do
+        local t = d.t
+        if not gr[t] then gr[t] = {}; tks[#tks+1] = t end
+        local dp = false
+        for _, k in ipairs(gr[t]) do if k == d.k then dp = true end end
+        if not dp then gr[t][#gr[t]+1] = d.k end
+    end
+    table.sort(tks)
+
+    local sq = {}
+    for _, t in ipairs(tks) do
+        sq[#sq+1] = {time = t2s(t), keys = gr[t]}
+    end
+
+    return sq, sq[#sq] and sq[#sq].time or 0,
+           math.floor(60e6 / (ts[1][2] or 5e5) + 0.5), #dn
+end
+
+-- ═══════════════════════════════
+-- MIDI LOAD & PLAY
+-- ═══════════════════════════════
+local function fetch(u)
+    local b
+    pcall(function()
+        if syn and syn.request then
+            b = syn.request({Url=u, Method="GET"}).Body
+        elseif http_request then
+            b = http_request({Url=u, Method="GET"}).Body
+        elseif request then
+            b = request({Url=u, Method="GET"}).Body
+        elseif httpget then
+            b = httpget(u)
+        else
+            b = game:HttpGet(u)
+        end
+    end)
+    return b
+end
+
+local function loadMd(u, cb)
+    if not u then return nil, "No URL" end
+    cb("Fetching...")
+    local r = fetch(u)
+    if not r then return nil, "Fetch fail" end
+    cb("Parsing...")
+    local ns, ts, ppq = M.parse(r)
+    if not ns then return nil, ts end
+    cb("Building...")
+    local sq, dur, bpm, cnt = M.build(ns, ts, ppq)
+    if not sq then return nil, "Fail" end
+    return {sq=sq, dur=dur, bpm=bpm, cnt=cnt}
+end
+
+local function fmt(s)
+    s = math.max(0, math.floor(s))
+    return string.format("%d:%02d", math.floor(s/60), s%60)
+end
+
+local function avl()
+    local a = {}
+    for i = 1, #PS do
+        if isPrem or isF(i) then a[#a+1] = i end
+    end
+    return a
+end
+
+local function pNx()
+    local a = avl()
+    if #a == 0 then return nil end
+    if shuf then return a[RNG:NextInteger(1, #a)] end
+    if not aSg then return a[1] end
+    for i, x in ipairs(a) do
+        if x == aSg then return a[(i % #a) + 1] end
+    end
+    return a[1]
+end
+
+local function midiLp()
+    if not mObj or #mObj.sq == 0 then secN = "NO MIDI"; task.wait(1); return end
+    secN = "♫ " .. cSong
+    local sq = mObj.sq
+    local dur = mObj.dur / sM
+    local st = tick()
+    for i = 1, #sq do
+        if not ok() then mPr = 0; return end
+        local tg = st + sq[i].time / sM
+        if tg > tick() + 0.003 then task.wait(tg - tick()) end
+        if not ok() then mPr = 0; return end
+        pr(sq[i].keys, true)
+        barN = math.floor(i / 16)
+        mPr = i / #sq
+        mTm = fmt(tick() - st) .. "/" .. fmt(dur)
+    end
+    lps = lps + 1
+    mPr = 1
+    if aNxt and ok() then
+        secN = "⏭"
+        task.wait(0.8)
+        if ok() then
+            local nx = pNx()
+            if nx then
+                _G._AD = false
+                task.wait(0.15)
+                aSg = nx
+                doLoad(PS[nx].u, PS[nx].n)
+                return
+            end
+        end
+    else
+        secN = "↻"
+        task.wait(0.5)
+    end
+end
+
+-- ═══════════════════════════════
+-- DRUM PATTERNS
+-- ═══════════════════════════════
+local E = 142
+
+-- Rock patterns
+local rA = {{K.Ki,K.HC},{K.HC},{K.Sn,K.HC},{K.HC},{K.Ki,K.HC},{K.HC},{K.Sn,K.HC},{K.HC}}
+local rB = {{K.Ki,K.HC},{K.HC},{K.Sn,K.HC},{K.Rd},{K.Ki,K.HC},{K.HO},{K.Sn,K.HC,K.T2},{K.HC}}
+local rC = {{K.Ki,K.CR},{K.HC},{K.Sn,K.HC},{K.HC},{K.Ki,K.HC},{K.HO},{K.Sn,K.HC},{K.HC}}
+local rF = {{K.Ki,K.HC},{K.HC},{K.T1,K.HC},{K.T2},{K.T3,K.Ki},{K.T3B},{K.Sn,K.Ki,K.CR},{K.CL,K.Ki}}
+
+local function rockL()
+    secN = "Rock"
+    local b = barN
+    if b > 0 and b % 16 == 0 then br(rF, 8, 120)
+    elseif b > 0 and b % 8 == 0 and RNG:NextNumber() < 0.25 then br(rC, 8, 120)
+    elseif b % 4 == 3 and RNG:NextNumber() < 0.45 then br(rB, 8, 120)
+    else br(rA, 8, 120) end
+end
+
+-- Eyeless patterns
+local iA={{K.Ki,K.Ch},nil,nil,nil,{K.Ki,K.Ch},nil,nil,nil}
+local iB={{K.Ki,K.Ch},nil,{K.Sn},nil,{K.Ki,K.Ch},nil,{K.Sn},nil}
+local iC={{K.Ki,K.Ch},{K.Ki2},{K.Sn,K.Ch},{K.Ki2},{K.Ki,K.Ch},{K.Ki2},{K.Sn,K.Ch},{K.Ki2}}
+local iD={{K.T1,K.Ki},{K.T1B,K.Ki2},{K.T2,K.Ki},{K.T2B,K.Ki2},{K.T3,K.Ki},{K.T3B,K.Ki2},{K.Sn,K.SnS,K.Ki},{K.CL,K.CR,K.Ch,K.Ki,K.Ki2}}
+local vA={{K.Ki,K.RB},{K.Ki2,K.RB},{K.Sn,K.Ki,K.RB},{K.Ki2,K.RB},{K.Ki,K.RB},{K.Ki2,K.RB},{K.Sn,K.Ki,K.RB},{K.Ki2,K.RB}}
+local vB={{K.Ki,K.RB},{K.Ki2,K.Sn2,K.RB},{K.Sn,K.Ki,K.RB},{K.Ki2,K.RB},{K.Ki,K.Sn2,K.RB},{K.Ki2,K.RB},{K.Sn,K.Ki,K.RB},{K.Ki2,K.Sn2,K.RB}}
+local vC={{K.Ki,K.RB},{K.Ki2,K.RB},{K.Sn,K.Ki,K.Ch},{K.Ki2,K.RB},{K.Ki,K.RB},{K.Ki2,K.RB},{K.Sn,K.Ki,K.RB},{K.Ki2,K.Ch}}
+local vD={{K.Ki,K.RB},{K.Ki2,K.HO},{K.Sn,K.Ki,K.RB},{K.Ki2,K.RB},{K.Ki,K.RB},{K.Ki2,K.HO},{K.Sn,K.Ki,K.Ch},{K.Ki2,K.RB}}
+local pA2={{K.Ki,K.Ki2,K.CR},{K.Ki2,K.RB},{K.Sn,K.Ki,K.RB},{K.Ki2,K.RB},{K.Ki,K.Ch},{K.Ki2,K.RB},{K.Sn,K.Ki,K.RB},{K.Ki2,K.Ch}}
+local pB2={{K.Ki,K.Ki2,K.CL},{K.Ki2,K.Sn2},{K.Sn,K.Ki,K.CR},{K.Ki2,K.RB},{K.Ki,K.Ch},{K.Ki2,K.Sn2},{K.Sn,K.Ki,K.Ch},{K.Ki2,K.CR}}
+local pF2={{K.Ki,K.CR},{K.Ki2,K.Sn2},{K.Sn,K.Ki,K.CL},{K.Ki2},{K.T1,K.Ki},{K.T2,K.Ki2},{K.T3,K.Ki},{K.Sn,K.CR,K.CL,K.Ki,K.Ki2}}
+local cA={{K.Ki,K.Ki2,K.Ch},{K.Ki2},{K.Ki,K.Ch},{K.Ki2},{K.Sn,K.Ki,K.CR},{K.Ki2},{K.Ki,K.Ch},{K.Ki2},{K.Ki,K.Ch},{K.Ki2},{K.Ki,K.Ch},{K.Ki2},{K.Sn,K.Ki,K.CL},{K.Ki2},{K.Ki,K.Ch},{K.Ki2}}
+local cB={{K.Ki,K.Ch},{K.Ki2},{K.Ki,K.Ch},{K.Ki2,K.Sn2},{K.Sn,K.Ki,K.CR},{K.Ki2},{K.Ki,K.Sp},{K.Ki2},{K.Ki,K.Ki2,K.Ch},{K.Ki2},{K.Ki,K.Ch},{K.Ki2},{K.Sn,K.Ki,K.CL,K.CR},{K.Ki2},{K.Ki,K.Ch},{K.Ki2,K.Ki}}
+local cC={{K.Ki,K.Ki2,K.Ch,K.CR},{K.Ki2},{K.Ki,K.Ch},{K.Ki2},{K.Sn,K.Ki,K.CL},{K.Ki2},{K.Ki,K.Ch},{K.Ki2,K.Sn2},{K.Ki,K.Ch},{K.Ki2},{K.Ki,K.Ki2,K.Ch},{K.Ki2},{K.Sn,K.Ki,K.CR,K.CL},{K.Ki2},{K.Ki,K.Ch,K.Sp},{K.Ki2,K.Ki}}
+local cFl={{K.Ki,K.Ch},{K.Ki2},{K.Sn,K.Ki,K.CR},{K.Ki2},{K.T1,K.Ki},{K.T1B,K.Ki2},{K.T2,K.Ki},{K.T2B,K.Ki2},{K.T3,K.Ki},{K.T3B,K.Ki2},{K.Sn,K.Ki},{K.Sn2,K.Ki2},{K.Sn,K.SnS,K.Ki,K.Ki2},{K.Ki2},{K.Sn,K.Ki},{K.CL,K.CR,K.Ch,K.Ki,K.Ki2}}
+local bA={{K.Ki,K.Ki2,K.Ch},nil,{K.Sn,K.Ch},nil,{K.Ki,K.Ki2,K.Ch},{K.T3},{K.Sn,K.CR},nil}
+local bB={{K.Ki,K.Ki2,K.Ch},{K.T1},{K.Sn,K.T2},{K.T3},{K.Ki,K.Ch},{K.T2},{K.Sn,K.T3},{K.Ki2,K.T1}}
+local bC2={{K.Ki,K.Ki2,K.Ch},{K.Ki2},{K.Sn,K.Ki,K.Ch},{K.Ki2},{K.Ki,K.Ki2,K.Ch},{K.Ki2,K.T3},{K.Sn,K.Ki,K.CR,K.CL},{K.Ki2}}
+local bF={{K.Ki,K.Ki2,K.CR},{K.Sn2},{K.T1,K.Ki},{K.T1B,K.Ki2},{K.T2,K.Ki},{K.T2B,K.Ki2},{K.T3,K.Ki},{K.Sn,K.SnS,K.CR,K.CL,K.Ch,K.Ki,K.Ki2}}
+local xA={{K.Ki,K.Sn,K.Ch},{K.Ki2},{K.Ki,K.Sn,K.Ch},{K.Ki2},{K.Ki,K.Sn,K.Ch},{K.Ki2},{K.Ki,K.Sn,K.Ch},{K.Ki2},{K.Ki,K.Sn,K.Ch},{K.Ki2},{K.Ki,K.Sn,K.Ch},{K.Ki2},{K.Ki,K.Sn,K.Ch},{K.Ki2},{K.Ki,K.Sn,K.Ch},{K.Ki2}}
+local xB={{K.Ki,K.Sn,K.CR},{K.Ki2},{K.Ki,K.Sn,K.CL},{K.Ki2},{K.Ki,K.Sn,K.Ch},{K.Ki2},{K.Ki,K.Sn,K.CR},{K.Ki2},{K.Ki,K.Sn,K.CL},{K.Ki2},{K.Ki,K.Sn,K.Ch},{K.Ki2},{K.Ki,K.Sn,K.CR},{K.Ki2},{K.Ki,K.Sn,K.CL,K.Ch},{K.Ki2}}
+local fA={{K.Sn,K.CR},{K.Sn2},{K.T1,K.Ki},{K.T1B,K.Ki2},{K.T2,K.Ki},{K.T2B,K.Ki2},{K.T3,K.Ki},{K.T3B,K.Ki2},{K.Sn,K.Ki,K.Ki2},{K.Sn},{K.T1,K.Ki},{K.T2,K.Ki2},{K.T3,K.Ki},{K.T3B,K.Ki2},{K.Sn,K.SnS,K.Ki,K.Ki2},{K.CL,K.CR,K.Ch,K.Ki,K.Ki2}}
+local tA2={{K.CL,K.CR,K.Ch,K.Sp,K.Ki,K.Ki2},nil,nil,nil,nil,nil,nil,nil}
+
+local function eyeL()
+    if introD then
+        introD = false
+        if not sc("INTRO",{iA,iB,iC,iD},8,E) then return end
+    end
+    if not sc("VERSE",{vA,vA,vB,vC,vA,vB,vD,vC},8,E) then return end
+    if not sc("PRE",{pA2,pB2,pF2},8,E) then return end
+    if not sc("CHORUS",{cA,cA,cB,cA,cFl},16,E) then return end
+    if not sc("VRS2",{vB,vD,vC,vB},8,E) then return end
+    if not sc("PRE2",{pB2,pA2,pF2},8,E) then return end
+    if not sc("CHR2",{cA,cC,cB,cC,cFl},16,E) then return end
+    if not sc("BREAK",{bA,bA,bB,bC2,bF},8,E) then return end
+    if not sc("BLAST",{xA,xB},16,E) then return end
+    if not sc("FILL",{fA},16,E) then return end
+    sc("LOOP",{tA2},8,E)
+end
+
+-- Pattern registry
+local PATS = {
+    {n="Rock", b=120, f=rockL},
+    {n="Eyeless", b=142, f=eyeL, pm=true},
+    {n="MIDI", b=0, f=midiLp},
+}
+
+local function go()
+    if _G._AD then return end
+    _G._AD = true; barN = 0; mPr = 0
+    task.spawn(function()
+        while _G._AD do pcall(PATS[pIdx].f) end
+    end)
+end
+
+local function stp()
+    _G._AD = false; secN = "IDLE"; mPr = 0
+    pcall(function()
+        for _, v in pairs(K) do VIM:SendKeyEvent(false, v, false, game) end
+    end)
+end
+
+-- Anti-AFK
+task.spawn(function()
+    while true do
+        if aAfk then
+            pcall(function()
+                VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+                task.wait(0.05)
+                VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+            end)
+        end
+        task.wait(180)
+    end
+end)
+pcall(function()
+    plr.Idled:Connect(function()
+        if aAfk then
+            VIM:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+            task.wait(0.1)
+            VIM:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+        end
+    end)
+end)
+
+-- Auto-Sit
+local function doSit()
+    local c = plr.Character
+    if not c then return "No char" end
+    local r = c:FindFirstChild("HumanoidRootPart")
+    local h = c:FindFirstChildOfClass("Humanoid")
+    if not r or not h then return "Err" end
+    if h.Sit then return "Already" end
+    local best, dist = nil, 999
+    for _, o in ipairs(workspace:GetDescendants()) do
+        pcall(function()
+            if (o:IsA("Seat") or o:IsA("VehicleSeat")) and not o.Occupant then
+                local d = (o.Position - r.Position).Magnitude
+                if d < dist then best = o; dist = d end
+            end
+        end)
+    end
+    if best and dist < 100 then
+        r.CFrame = best.CFrame + Vector3.new(0, 3, 0)
+        task.wait(0.5)
+        pcall(function() best:Sit(h) end)
+        return "Seated!"
+    end
+    return "No seat"
+end
+
+-- ═══════════════════════════════
+-- GUI HELPERS
+-- ═══════════════════════════════
+local function cr(p, r) Instance.new("UICorner", p).CornerRadius = UDim.new(0, r or 4) end
+
+local function ln(p, s, ps, t, cl, ts, fn)
+    local l = Instance.new("TextLabel", p)
+    l.Size = s or UDim2.new(1, 0, 0, 12)
+    l.Position = ps or UDim2.new()
+    l.BackgroundTransparency = 1
+    l.Text = t or ""
+    l.TextColor3 = cl or C.t1
+    l.TextSize = ts or 9
+    l.Font = fn or Enum.Font.Gotham
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.TextTruncate = Enum.TextTruncate.AtEnd
+    return l
+end
+
+local function bt(p, s, ps, bg, t, tc, ts)
+    local b = Instance.new("TextButton", p)
+    b.Size = s; b.Position = ps; b.BackgroundColor3 = bg
+    b.Text = t; b.TextColor3 = tc or C.w
+    b.TextSize = ts or 8; b.Font = Enum.Font.GothamBold
+    b.AutoButtonColor = true; b.BorderSizePixel = 0
+    cr(b, 4); return b
+end
+
+local function dv(p, s, ps)
+    local d = Instance.new("Frame", p)
+    d.Size = s; d.Position = ps
+    d.BackgroundColor3 = C.div; d.BorderSizePixel = 0
+    return d
+end
+
+local function mkBadge(par, txt, col, xOff)
+    local bg = Instance.new("Frame", par)
+    bg.Size = UDim2.new(0, #txt * 5 + 8, 0, 12)
+    bg.Position = UDim2.new(1, -#txt * 5 - 14 - xOff, 0, 2)
+    bg.BackgroundColor3 = col; bg.BackgroundTransparency = 0.15
+    bg.BorderSizePixel = 0; bg.ZIndex = 3; cr(bg, 3)
+    local l = ln(bg, UDim2.new(1,0,1,0), UDim2.new(), "", C.w, 7, Enum.Font.GothamBold)
+    l.Text = txt; l.TextXAlignment = Enum.TextXAlignment.Center; l.ZIndex = 4
+end
+
+-- ═══════════════════════════════
+-- KEY SYSTEM GUI (Daily Key)
+-- ═══════════════════════════════
+local function showK(done)
+    local g = Instance.new("ScreenGui", pg)
+    g.Name = "DK"; g.ResetOnSpawn = false
+
+    local bg = Instance.new("Frame", g)
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = Color3.new(0, 0, 0)
+    bg.BackgroundTransparency = 0.4
+    bg.BorderSizePixel = 0
+
+    local cd = Instance.new("Frame", bg)
+    cd.Size = UDim2.new(0, 290, 0, 260)
+    cd.Position = UDim2.new(0.5, -145, 0.5, -130)
+    cd.BackgroundColor3 = C.bg; cd.BorderSizePixel = 0
+    cd.Active = true; cd.Draggable = true
+    cr(cd, 4); Instance.new("UIStroke", cd).Color = C.div
+
+    -- Header
+    ln(cd, UDim2.new(1,0,0,18), UDim2.new(0,0,0,10),
+       "🥁 Auto Drum [Reworked]", C.t1, 13, Enum.Font.GothamBold
+    ).TextXAlignment = Enum.TextXAlignment.Center
+
+    ln(cd, UDim2.new(1,0,0,10), UDim2.new(0,0,0,30),
+       "v8.5 · " .. #PS .. " songs · Daily Key System",
+       C.t3, 7
+    ).TextXAlignment = Enum.TextXAlignment.Center
+
+    -- Badges
+    local bdRow = Instance.new("Frame", cd)
+    bdRow.Size = UDim2.new(1, 0, 0, 16)
+    bdRow.Position = UDim2.new(0, 0, 0, 44)
+    bdRow.BackgroundTransparency = 1
+
+    local bds = {"v8.5", #PS .. " songs", "daily key"}
+    local bCols = {C.acc, C.grn, C.blu}
+    for i, tx in ipairs(bds) do
+        local bb = Instance.new("Frame", bdRow)
+        bb.Size = UDim2.new(0, #tx * 5 + 12, 0, 14)
+        bb.Position = UDim2.new(0.5, -48 + (i-1) * 56, 0, 0)
+        bb.BackgroundColor3 = bCols[i]; bb.BackgroundTransparency = 0.2
+        bb.BorderSizePixel = 0; cr(bb, 3)
+        local bl = ln(bb, UDim2.new(1,0,1,0), UDim2.new(), tx, C.w, 7, Enum.Font.GothamBold)
+        bl.TextXAlignment = Enum.TextXAlignment.Center
+    end
+
+    dv(cd, UDim2.new(0.85, 0, 0, 1), UDim2.new(0.075, 0, 0, 66))
+
+    -- Columns
+    local function cl2(t, x, y, c2)
+        local l = ln(cd, UDim2.new(0.44, 0, 0, 10), UDim2.new(x, 0, 0, y), t, c2, 7)
+        l.TextXAlignment = Enum.TextXAlignment.Center
+    end
+    ln(cd, UDim2.new(0.44,0,0,11), UDim2.new(0.03,0,0,72),
+       "🆓 Free", C.t2, 9, Enum.Font.GothamBold
+    ).TextXAlignment = Enum.TextXAlignment.Center
+    ln(cd, UDim2.new(0.44,0,0,11), UDim2.new(0.53,0,0,72),
+       "⭐ Premium", C.acc, 9, Enum.Font.GothamBold
+    ).TextXAlignment = Enum.TextXAlignment.Center
+
+    cl2("✅ Rock + 3 Songs", 0.03, 86, C.grn)
+    cl2("❌ All " .. #PS .. " Songs", 0.03, 98, C.red)
+    cl2("❌ Shuffle/Next", 0.03, 110, C.red)
+    cl2("✅ Rock + " .. #PS .. " Songs", 0.53, 86, C.grn)
+    cl2("✅ All Features", 0.53, 98, C.grn)
+    cl2("✅ Shuffle/Next", 0.53, 110, C.grn)
+
+    dv(cd, UDim2.new(0.85, 0, 0, 1), UDim2.new(0.075, 0, 0, 126))
+
+    -- Key input
+    ln(cd, UDim2.new(1,0,0,12), UDim2.new(0,0,0,132),
+       "🔑 Enter Daily Key", C.t1, 10, Enum.Font.GothamBold
+    ).TextXAlignment = Enum.TextXAlignment.Center
+
+    ln(cd, UDim2.new(1,0,0,9), UDim2.new(0,0,0,146),
+       "Get key from website → XXXX-XXXX-XXXX-XXXX",
+       C.t4, 7
+    ).TextXAlignment = Enum.TextXAlignment.Center
+
+    local kb = Instance.new("TextBox", cd)
+    kb.Size = UDim2.new(0.78, 0, 0, 28)
+    kb.Position = UDim2.new(0.11, 0, 0, 160)
+    kb.BackgroundColor3 = C.card; kb.BorderSizePixel = 0
+    kb.Text = ""; kb.PlaceholderText = "  XXXX-XXXX-XXXX-XXXX"
+    kb.PlaceholderColor3 = C.t4; kb.TextColor3 = C.t1
+    kb.TextSize = 11; kb.Font = Enum.Font.GothamBold
+    kb.ClearTextOnFocus = false
+    cr(kb, 4)
+    Instance.new("UIStroke", kb).Color = C.div
+    Instance.new("UIPadding", kb).PaddingLeft = UDim.new(0, 6)
+
+    -- Buttons
+    local ub = bt(cd, UDim2.new(0.36,0,0,28), UDim2.new(0.07,0,0,198),
+                 C.dark, "🔓 Unlock", C.w, 10)
+    local fb = bt(cd, UDim2.new(0.36,0,0,28), UDim2.new(0.57,0,0,198),
+                 C.card, "▶ Free", C.t1, 10)
+    Instance.new("UIStroke", fb).Color = C.div
+
+    local st = ln(cd, UDim2.new(0.9,0,0,10), UDim2.new(0.05,0,0,234),
+                 "", C.t3, 8)
+    st.TextXAlignment = Enum.TextXAlignment.Center
+
+    ln(cd, UDim2.new(1,0,0,9), UDim2.new(0,0,0,248),
+       "made by me n team", C.t4, 7
+    ).TextXAlignment = Enum.TextXAlignment.Center
+
+    -- Button logic
+    ub.MouseButton1Click:Connect(function()
+        if kb.Text == "" then
+            st.Text = "⚠ Paste key from website!"
+            st.TextColor3 = C.acc
+            return
+        end
+        st.Text = "⏳ Validating..."
+        st.TextColor3 = C.t3
+        task.wait(0.5)
+
+        if ckK(kb.Text) then
+            isPrem = true; _G._DP = true; _G._DV = true
+            st.Text = "✅ Premium Unlocked!"
+            st.TextColor3 = C.grn
+            task.wait(0.8)
+            g:Destroy()
+            done()
+        else
+            st.Text = "❌ Invalid or expired key!"
+            st.TextColor3 = C.red
+        end
+    end)
+
+    fb.MouseButton1Click:Connect(function()
+        isPrem = false; _G._DP = false; _G._DV = true
+        task.wait(0.3)
+        g:Destroy()
+        done()
+    end)
+end
+
+-- ═══════════════════════════════════════
+-- MAIN GUI — LANDSCAPE 410 × 260
+-- ═══════════════════════════════════════
+local function loadMain()
+local gui = Instance.new("ScreenGui", pg)
+gui.Name = "DG"; gui.ResetOnSpawn = false
+
+-- Mini button
+local mini = Instance.new("TextButton", gui)
+mini.Size = UDim2.new(0,36,0,36)
+mini.Position = UDim2.new(0,5,0.5,-18)
+mini.BackgroundColor3 = C.bg; mini.Text = "🥁"
+mini.TextSize = 16; mini.Font = Enum.Font.GothamBold
+mini.TextColor3 = C.t1; mini.Visible = false; mini.ZIndex = 10
+cr(mini, 4); Instance.new("UIStroke", mini).Color = C.div
+
+-- Main frame
+local W, H = 410, 260
+local mf = Instance.new("Frame", gui)
+mf.Size = UDim2.new(0, W, 0, H)
+mf.Position = UDim2.new(0.5, -W/2, 0.5, -H/2)
+mf.BackgroundColor3 = C.bg; mf.BackgroundTransparency = 0.03
+mf.BorderSizePixel = 0; mf.Active = true; mf.Draggable = true
+cr(mf, 4); Instance.new("UIStroke", mf).Color = C.div
+
+-- ═══ TOP BAR h=26 ═══
+ln(mf, UDim2.new(0,14,0,14), UDim2.new(0,7,0,6), "🥁", nil, 11)
+ln(mf, UDim2.new(0,78,0,12), UDim2.new(0,22,0,3), "Auto Drum", C.t1, 10, Enum.Font.GothamBold)
+ln(mf, UDim2.new(0,60,0,9), UDim2.new(0,22,0,15), "[Reworked]", C.t3, 7)
+
+-- Time badge
+local tmBg = Instance.new("Frame", mf)
+tmBg.Size = UDim2.new(0,34,0,14); tmBg.Position = UDim2.new(0,104,0,6)
+tmBg.BackgroundColor3 = C.dark; tmBg.BorderSizePixel = 0; cr(tmBg, 3)
+local tmL = ln(tmBg, UDim2.new(1,0,1,0), UDim2.new(), os.date("%H:%M"), C.w, 7, Enum.Font.GothamBold)
+tmL.TextXAlignment = Enum.TextXAlignment.Center
+
+-- Version badge
+local vBg = Instance.new("Frame", mf)
+vBg.Size = UDim2.new(0,55,0,14); vBg.Position = UDim2.new(0,142,0,6)
+vBg.BackgroundColor3 = isPrem and C.acc or C.dark; vBg.BorderSizePixel = 0; cr(vBg, 3)
+ln(vBg, UDim2.new(1,0,1,0), UDim2.new(),
+   isPrem and "premium" or "free ver.",
+   isPrem and C.dark or C.w, 7, Enum.Font.GothamBold
+).TextXAlignment = Enum.TextXAlignment.Center
+
+-- Song count
+local scBg = Instance.new("Frame", mf)
+scBg.Size = UDim2.new(0,42,0,14); scBg.Position = UDim2.new(0,201,0,6)
+scBg.BackgroundColor3 = C.blu; scBg.BackgroundTransparency = 0.2
+scBg.BorderSizePixel = 0; cr(scBg, 3)
+ln(scBg, UDim2.new(1,0,1,0), UDim2.new(), #PS.." songs", C.w, 6, Enum.Font.GothamBold
+).TextXAlignment = Enum.TextXAlignment.Center
+
+-- Window buttons
+local mnB = bt(mf, UDim2.new(0,18,0,18), UDim2.new(1,-40,0,4), C.card, "—", C.t3, 9)
+local clB = bt(mf, UDim2.new(0,18,0,18), UDim2.new(1,-20,0,4), C.card, "✕", C.t3, 9)
+
+dv(mf, UDim2.new(1,0,0,1), UDim2.new(0,0,0,26))
+
+-- ═══ SIDEBAR w=64 ═══
+local SBW = 64
+local CBH = H - 27 - 26
+dv(mf, UDim2.new(0,1,0,CBH), UDim2.new(0,SBW,0,27))
+
+local TD = {
+    {ic="🎵", tx="songs"},
+    {ic="🎮", tx="player"},
+    {ic="⚙️", tx="settings"},
+    {ic="ℹ️", tx="info"},
+    {ic="👤", tx="credits"},
+}
+local tBs, tFs = {}, {}
+
+for i, td in ipairs(TD) do
+    local b = Instance.new("TextButton", mf)
+    b.Size = UDim2.new(0, SBW-4, 0, 24)
+    b.Position = UDim2.new(0, 2, 0, 27 + 3 + (i-1) * 26)
+    b.BackgroundColor3 = C.card
+    b.BackgroundTransparency = i == 1 and 0 or 1
+    b.Text = ""; b.AutoButtonColor = false; b.BorderSizePixel = 0
+    cr(b, 4)
+
+    local ac = Instance.new("Frame", b)
+    ac.Size = UDim2.new(0, 2, 0.5, 0)
+    ac.Position = UDim2.new(0, 0, 0.25, 0)
+    ac.BackgroundColor3 = C.acc; ac.Visible = (i == 1)
+    ac.BorderSizePixel = 0; cr(ac, 1)
+
+    ln(b, UDim2.new(0,13,0,13), UDim2.new(0,6,0,5), td.ic, nil, 10)
+    local tl = ln(b, UDim2.new(0,38,1,0), UDim2.new(0,21,0,0),
+                 td.tx, i == 1 and C.t1 or C.t3, 8, Enum.Font.GothamBold)
+    tl.TextYAlignment = Enum.TextYAlignment.Center
+
+    tBs[i] = {b = b, ac = ac, tl = tl}
+end
+
+-- ═══ CONTENT FRAMES ═══
+local CW = W - SBW - 1
+for i = 1, 5 do
+    local sf = Instance.new("ScrollingFrame", mf)
+    sf.Size = UDim2.new(0, CW, 0, CBH)
+    sf.Position = UDim2.new(0, SBW + 1, 0, 27)
+    sf.BackgroundTransparency = 1; sf.BorderSizePixel = 0
+    sf.ScrollBarThickness = 2; sf.ScrollBarImageColor3 = C.div
+    sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    sf.ScrollingDirection = Enum.ScrollingDirection.Y
+    sf.Visible = (i == 1)
+    local pad = Instance.new("UIPadding", sf)
+    pad.PaddingTop = UDim.new(0, 3)
+    pad.PaddingLeft = UDim.new(0, 4)
+    pad.PaddingRight = UDim.new(0, 4)
+    pad.PaddingBottom = UDim.new(0, 4)
+    Instance.new("UIListLayout", sf).Padding = UDim.new(0, 3)
+    tFs[i] = sf
+end
+
+-- Tab switch
+local function swT(idx)
+    for i = 1, 5 do
+        tFs[i].Visible = (i == idx)
+        tBs[i].b.BackgroundTransparency = i == idx and 0 or 1
+        tBs[i].ac.Visible = (i == idx)
+        tBs[i].tl.TextColor3 = i == idx and C.t1 or C.t3
+    end
+end
+for i = 1, 5 do
+    tBs[i].b.MouseButton1Click:Connect(function() swT(i) end)
+end
+
+-- ═══ BOTTOM BAR h=26 ═══
+dv(mf, UDim2.new(0.92,0,0,1), UDim2.new(0.04,0,0,H-27))
+local av = Instance.new("ImageLabel", mf)
+av.Size = UDim2.new(0,20,0,20); av.Position = UDim2.new(0,7,0,H-23)
+av.BackgroundColor3 = C.card; av.BorderSizePixel = 0; cr(av, 4)
+pcall(function() av.Image = "rbxthumb://type=AvatarHeadShot&id="..plr.UserId.."&w=48&h=48" end)
+ln(mf, UDim2.new(0,90,0,10), UDim2.new(0,30,0,H-24), plr.DisplayName, C.t1, 8, Enum.Font.GothamBold)
+ln(mf, UDim2.new(0,90,0,8), UDim2.new(0,30,0,H-13), plr.Name, C.t3, 6)
+local sDot = Instance.new("Frame", mf)
+sDot.Size = UDim2.new(0,6,0,6); sDot.Position = UDim2.new(1,-14,0,H-17)
+sDot.BackgroundColor3 = C.tog; sDot.BorderSizePixel = 0; cr(sDot, 3)
+
+-- ═══════════════════════════════
+-- TAB 1: SONGS
+-- ═══════════════════════════════
+local t1f = tFs[1]
+
+-- Filter row
+local fR = Instance.new("Frame", t1f)
+fR.Size = UDim2.new(1,-4,0,18); fR.BackgroundTransparency = 1; fR.LayoutOrder = 0
+
+local FN = {"All", "Slipknot", "Megadeth", "A7X", "Other"}
+local TM = {All="All", Slipknot="SK", Megadeth="MG", A7X="A7X", Other="*"}
+local fBs = {}
+for i, fn in ipairs(FN) do
+    fBs[i] = bt(fR, UDim2.new(0,48,0,16), UDim2.new(0,(i-1)*50,0,1),
+               i == 1 and C.dark or C.card, fn,
+               i == 1 and C.w or C.t3, 7)
+end
+
+-- Song list
+local qBs = {}
+for i, ps in ipairs(PS) do
+    local fr = isF(i)
+    local lk = not isPrem and not fr
+    local row = Instance.new("Frame", t1f)
+    row.Size = UDim2.new(1,-4,0,30); row.BackgroundColor3 = C.card
+    row.BorderSizePixel = 0; row.LayoutOrder = i; cr(row, 4)
+    if lk then row.BackgroundTransparency = 0.3 end
+
+    -- Color stripe
+    local st2 = Instance.new("Frame", row)
+    st2.Size = UDim2.new(0,3,0.5,0); st2.Position = UDim2.new(0,0,0.25,0)
+    st2.BackgroundColor3 = lk and C.tog or ps.c; st2.BorderSizePixel = 0; cr(st2, 1)
+
+    -- Name
+    ln(row, UDim2.new(0,170,0,12), UDim2.new(0,9,0,2),
+       lk and "🔒 "..ps.n or ps.n,
+       lk and C.t4 or C.t1, 9, Enum.Font.GothamBold)
+
+    -- Artist
+    ln(row, UDim2.new(0,150,0,9), UDim2.new(0,9,0,16),
+       lk and "Premium" or ps.a,
+       lk and C.t4 or C.t3, 7)
+
+    -- Popular/Special badge
+    if ps.p and not lk then
+        local bgC = ps.p == "🔥" and C.pop or C.spc
+        local tx = ps.p == "🔥" and "🔥 Popular" or "⭐ Special"
+        mkBadge(row, tx, bgC, 40)
+    end
+
+    -- Play button
+    local pb = bt(row, UDim2.new(0,36,0,20), UDim2.new(1,-42,0,5),
+                 lk and C.tog or C.grn, lk and "🔒" or "▶", C.w, 9)
+    pb.MouseButton1Click:Connect(function()
+        if lk then return end
+        aSg = i
+        doLoad(PS[i].u, PS[i].n)
+    end)
+
+    qBs[i] = {row = row}
+end
+
+-- Custom MIDI
+local cSp = Instance.new("Frame", t1f)
+cSp.Size = UDim2.new(1,-8,0,1); cSp.BackgroundColor3 = C.div
+cSp.BorderSizePixel = 0; cSp.LayoutOrder = 50
+
+local cWr = Instance.new("Frame", t1f)
+cWr.Size = UDim2.new(1,-4,0,58); cWr.BackgroundTransparency = 1; cWr.LayoutOrder = 51
+
+ln(cWr, UDim2.new(1,0,0,10), UDim2.new(), "🔗 Custom MIDI", C.t2, 8, Enum.Font.GothamBold)
+
+local uBox = Instance.new("TextBox", cWr)
+uBox.Size = UDim2.new(1,0,0,20); uBox.Position = UDim2.new(0,0,0,12)
+uBox.BackgroundColor3 = C.card; uBox.BorderSizePixel = 0
+uBox.Text = ""; uBox.PlaceholderText = "  .mid URL..."
+uBox.PlaceholderColor3 = C.t4; uBox.TextColor3 = C.t1
+uBox.TextSize = 7; uBox.Font = Enum.Font.Gotham
+uBox.ClearTextOnFocus = false; uBox.TextXAlignment = Enum.TextXAlignment.Left
+uBox.TextTruncate = Enum.TextTruncate.AtEnd
+cr(uBox, 3); Instance.new("UIStroke", uBox).Color = C.div
+Instance.new("UIPadding", uBox).PaddingLeft = UDim.new(0, 5)
+
+local ldB = bt(cWr, UDim2.new(0,50,0,16), UDim2.new(0,0,0,36), C.dark, "📥 Load", C.w, 7)
+local mLb = ln(cWr, UDim2.new(0,220,0,16), UDim2.new(0,54,0,36), "No MIDI", C.t3, 7)
+
+-- Filter logic
+local function aFl(nm)
+    for i, fb in ipairs(fBs) do
+        fb.BackgroundColor3 = FN[i] == nm and C.dark or C.card
+        fb.TextColor3 = FN[i] == nm and C.w or C.t3
+    end
+    local tg = TM[nm]
+    for i, q in ipairs(qBs) do
+        if tg == "All" then q.row.Visible = true
+        elseif tg == "*" then q.row.Visible = (PS[i].t ~= "SK" and PS[i].t ~= "MG" and PS[i].t ~= "A7X")
+        else q.row.Visible = (PS[i].t == tg) end
+    end
+end
+for i, fb in ipairs(fBs) do
+    fb.MouseButton1Click:Connect(function() aFl(FN[i]) end)
+end
+
+-- ═══════════════════════════════
+-- TAB 2: PLAYER
+-- ═══════════════════════════════
+local t2f = tFs[2]
+
+local npC = Instance.new("Frame", t2f)
+npC.Size = UDim2.new(1,-4,0,38); npC.BackgroundColor3 = C.card
+npC.BorderSizePixel = 0; npC.LayoutOrder = 0; cr(npC, 4)
+local npN = ln(npC, UDim2.new(0.65,0,0,12), UDim2.new(0,8,0,4), "Not Playing", C.t1, 10, Enum.Font.GothamBold)
+local npA = ln(npC, UDim2.new(0.65,0,0,9), UDim2.new(0,8,0,19), "Select a song", C.t3, 7)
+local npBpm = ln(npC, UDim2.new(0,55,0,11), UDim2.new(1,-58,0,14), "--", C.t2, 9, Enum.Font.GothamBold)
+
+local pBg = Instance.new("Frame", t2f)
+pBg.Size = UDim2.new(1,-4,0,5); pBg.BackgroundColor3 = C.div
+pBg.BorderSizePixel = 0; pBg.LayoutOrder = 1; cr(pBg, 2)
+local pFl = Instance.new("Frame", pBg)
+pFl.Size = UDim2.new(0,0,1,0); pFl.BackgroundColor3 = C.acc
+pFl.BorderSizePixel = 0; cr(pFl, 2)
+
+local pTm = ln(t2f, UDim2.new(1,-4,0,10), UDim2.new(), "0:00/0:00", C.t3, 7)
+pTm.LayoutOrder = 2
+
+local ctR = Instance.new("Frame", t2f)
+ctR.Size = UDim2.new(1,-4,0,26); ctR.BackgroundTransparency = 1; ctR.LayoutOrder = 3
+local togB = bt(ctR, UDim2.new(0,58,0,24), UDim2.new(0,0,0,0), C.grn, "▶ Play", C.w, 10)
+local patB = bt(ctR, UDim2.new(0,56,0,24), UDim2.new(0,62,0,0), C.card, "Rock ▸", C.t1, 8)
+Instance.new("UIStroke", patB).Color = C.div
+local spdB = bt(ctR, UDim2.new(0,46,0,24), UDim2.new(0,122,0,0), C.card, "1.0x ▸", C.t2, 8)
+Instance.new("UIStroke", spdB).Color = C.div
+
+local function mkS(ord, lab)
+    local f = Instance.new("Frame", t2f)
+    f.Size = UDim2.new(1,-4,0,22); f.BackgroundColor3 = C.card
+    f.BorderSizePixel = 0; f.LayoutOrder = ord; cr(f, 4)
+    ln(f, UDim2.new(0.5,0,1,0), UDim2.new(0,8,0,0), lab, C.t2, 8).TextYAlignment = Enum.TextYAlignment.Center
+    local v = ln(f, UDim2.new(0.4,0,1,0), UDim2.new(0.55,0,0,0), "0", C.t1, 9, Enum.Font.GothamBold)
+    v.TextXAlignment = Enum.TextXAlignment.Right
+    v.TextYAlignment = Enum.TextYAlignment.Center
+    Instance.new("UIPadding", v).PaddingRight = UDim.new(0, 8)
+    return v
+end
+local sH = mkS(4, "🎵 Hits")
+local sN = mkS(5, "⚡ NPS")
+local sL = mkS(6, "🔄 Loops")
+local sB = mkS(7, "📊 Bars")
+local sS = mkS(8, "📍 Section")
+
+-- ═══════════════════════════════
+-- TAB 3: SETTINGS
+-- ═══════════════════════════════
+local t3f = tFs[3]
+
+local function mkTg(ord, lab, init, fn, pm2)
+    local f = Instance.new("Frame", t3f)
+    f.Size = UDim2.new(1,-4,0,26); f.BackgroundColor3 = C.card
+    f.BorderSizePixel = 0; f.LayoutOrder = ord; cr(f, 4)
+    ln(f, UDim2.new(0.6,0,1,0), UDim2.new(0,8,0,0),
+       lab .. (pm2 and not isPrem and " 🔒" or ""),
+       C.t1, 8, Enum.Font.GothamBold).TextYAlignment = Enum.TextYAlignment.Center
+
+    local bg2 = Instance.new("Frame", f)
+    bg2.Size = UDim2.new(0,32,0,16); bg2.Position = UDim2.new(1,-40,0,5)
+    bg2.BackgroundColor3 = init and C.grn or C.tog; bg2.BorderSizePixel = 0; cr(bg2, 3)
+
+    local kb2 = Instance.new("Frame", bg2)
+    kb2.Size = UDim2.new(0,12,0,12)
+    kb2.Position = init and UDim2.new(0,18,0,2) or UDim2.new(0,2,0,2)
+    kb2.BackgroundColor3 = C.w; kb2.BorderSizePixel = 0; cr(kb2, 3)
+
+    local bn = Instance.new("TextButton", bg2)
+    bn.Size = UDim2.new(1,0,1,0); bn.BackgroundTransparency = 1; bn.Text = ""
+    local on = init
+    bn.MouseButton1Click:Connect(function()
+        if pm2 and not isPrem then return end
+        on = not on
+        bg2.BackgroundColor3 = on and C.grn or C.tog
+        TS:Create(kb2, TweenInfo.new(0.1), {
+            Position = on and UDim2.new(0,18,0,2) or UDim2.new(0,2,0,2)
+        }):Play()
+        if fn then fn(on) end
+    end)
+end
+
+mkTg(0, "🛡️ Anti-AFK", aAfk, function(v) aAfk = v end)
+mkTg(1, "🔀 Shuffle", shuf, function(v) shuf = v end, true)
+mkTg(2, "⏭️ Auto-Next", aNxt, function(v) aNxt = v end, true)
+
+-- Speed
+local sf = Instance.new("Frame", t3f)
+sf.Size = UDim2.new(1,-4,0,26); sf.BackgroundColor3 = C.card
+sf.BorderSizePixel = 0; sf.LayoutOrder = 3; cr(sf, 4)
+ln(sf, UDim2.new(0.4,0,1,0), UDim2.new(0,8,0,0), "🎚️ Speed", C.t1, 8, Enum.Font.GothamBold
+).TextYAlignment = Enum.TextYAlignment.Center
+local sDn = bt(sf, UDim2.new(0,20,0,16), UDim2.new(1,-72,0,5), C.bg, "◀", C.t2, 8)
+local sDp = ln(sf, UDim2.new(0,28,0,16), UDim2.new(1,-50,0,5), "1.0x", C.t1, 8, Enum.Font.GothamBold)
+sDp.TextXAlignment = Enum.TextXAlignment.Center
+sDp.TextYAlignment = Enum.TextYAlignment.Center
+local sUp = bt(sf, UDim2.new(0,20,0,16), UDim2.new(1,-22,0,5), C.bg, "▶", C.t2, 8)
+sDn.MouseButton1Click:Connect(function()
+    sI = math.max(1, sI-1); sM = SP[sI]
+    sDp.Text = sM.."x"; spdB.Text = sM.."x ▸"
+end)
+sUp.MouseButton1Click:Connect(function()
+    sI = math.min(#SP, sI+1); sM = SP[sI]
+    sDp.Text = sM.."x"; spdB.Text = sM.."x ▸"
+end)
+
+-- Auto-Sit
+local stF = Instance.new("Frame", t3f)
+stF.Size = UDim2.new(1,-4,0,26); stF.BackgroundColor3 = C.card
+stF.BorderSizePixel = 0; stF.LayoutOrder = 4; cr(stF, 4)
+ln(stF, UDim2.new(0.55,0,1,0), UDim2.new(0,8,0,0), "🪑 Auto-Sit", C.t1, 8, Enum.Font.GothamBold
+).TextYAlignment = Enum.TextYAlignment.Center
+local stBn = bt(stF, UDim2.new(0,36,0,16), UDim2.new(1,-44,0,5), C.dark, "find", C.w, 7)
+stBn.MouseButton1Click:Connect(function()
+    local m = doSit()
+    stBn.Text = m:sub(1,1) == "S" and "✅" or "❌"
+    task.wait(1); stBn.Text = "find"
+end)
+
+-- Premium key
+local kF = Instance.new("Frame", t3f)
+kF.Size = UDim2.new(1,-4,0,26); kF.BackgroundColor3 = C.card
+kF.BorderSizePixel = 0; kF.LayoutOrder = 5; cr(kF, 4)
+ln(kF, UDim2.new(0.55,0,1,0), UDim2.new(0,8,0,0), "🔑 Premium", C.t1, 8, Enum.Font.GothamBold
+).TextYAlignment = Enum.TextYAlignment.Center
+local kBn = bt(kF, UDim2.new(0,40,0,16), UDim2.new(1,-48,0,5),
+              isPrem and C.grn or C.acc,
+              isPrem and "active" or "enter",
+              isPrem and C.w or C.dark, 7)
+
+-- ═══════════════════════════════
+-- TAB 4: INFO
+-- ═══════════════════════════════
+local t4f = tFs[4]
+local info = {
+    "🥁 Auto Drum [Reworked] v8.5",
+    "made by me n team · "..#PS.." songs",
+    "",
+    "Features:",
+    "• "..#PS.." MIDI songs auto-play",
+    "• 🔥 Popular & ⭐ Special tags",
+    "• Rock beat & Eyeless pattern",
+    "• Custom MIDI URL loader",
+    "• Speed 0.5x — 2.0x",
+    "• Anti-AFK · Auto-Sit",
+    "• Progress bar + live stats",
+    "• Shuffle & Auto-Next ⭐",
+    "• 5 artist filter tabs",
+    "• Daily key system (24h expiry)",
+    "",
+    "How to use:",
+    "1. Get key from website",
+    "2. Join Virtual Drums",
+    "3. Execute script → paste key",
+    "4. Songs tab → ▶ → Enjoy!",
+    "",
+    "Key format: XXXX-XXXX-XXXX-XXXX",
+    "Key changes daily at midnight",
+    "Get new key from website each day",
+    "",
+    "Executors supported:",
+    "Delta · Fluxus · Arceus X",
+    "Codex · Hydrogen",
+    "",
+    "Game: Virtual Drums by Ro-Xolotl",
+}
+for i, tx in ipairs(info) do
+    local f = Instance.new("Frame", t4f)
+    f.Size = UDim2.new(1,-4,0, tx == "" and 4 or 12)
+    f.BackgroundTransparency = 1; f.LayoutOrder = i
+    if tx ~= "" then
+        local bd = tx:find("🥁") or tx:find("made by") or (tx:find(":") and #tx < 22)
+        ln(f, UDim2.new(1,0,1,0), UDim2.new(), tx,
+           bd and C.t1 or C.t2, bd and 8 or 7,
+           bd and Enum.Font.GothamBold or Enum.Font.Gotham)
+    end
+end
+
+-- ═══════════════════════════════
+-- TAB 5: CREDITS
+-- ═══════════════════════════════
+local t5f = tFs[5]
+
+-- Creator card
+local crC = Instance.new("Frame", t5f)
+crC.Size = UDim2.new(1,-4,0,46); crC.BackgroundColor3 = C.card
+crC.BorderSizePixel = 0; crC.LayoutOrder = 0; cr(crC, 4)
+local crAv = Instance.new("ImageLabel", crC)
+crAv.Size = UDim2.new(0,30,0,30); crAv.Position = UDim2.new(0,6,0,8)
+crAv.BackgroundColor3 = C.div; crAv.BorderSizePixel = 0; cr(crAv, 4)
+pcall(function() crAv.Image = "rbxthumb://type=AvatarHeadShot&id="..plr.UserId.."&w=48&h=48" end)
+ln(crC, UDim2.new(0.65,0,0,12), UDim2.new(0,42,0,6), "rafijr1873", C.t1, 10, Enum.Font.GothamBold)
+ln(crC, UDim2.new(0.65,0,0,9), UDim2.new(0,42,0,20), "Script Developer", C.t3, 7)
+ln(crC, UDim2.new(0.65,0,0,8), UDim2.new(0,42,0,32), "github/rafijr1873-pixel", C.blu, 6)
+
+-- Team card
+local mBC = Instance.new("Frame", t5f)
+mBC.Size = UDim2.new(1,-4,0,30); mBC.BackgroundColor3 = C.card
+mBC.BorderSizePixel = 0; mBC.LayoutOrder = 1; cr(mBC, 4)
+ln(mBC, UDim2.new(1,-8,0,12), UDim2.new(0,8,0,3), "🤝 made by me n team", C.t1, 9, Enum.Font.GothamBold)
+ln(mBC, UDim2.new(1,-8,0,9), UDim2.new(0,8,0,17), "Special thanks to our amazing team!", C.t3, 7)
+
+local crTx = {
+    "", "Special Thanks:",
+    "• Ro-Xolotl — Virtual Drums",
+    "• Joey Jordison (1975–2021) 🥁",
+    "• Slipknot · Megadeth · A7X",
+    "• DragonForce · UNDEAD CORP.",
+    "• Jazz & Solo drum community",
+    "",
+    "Songs (" .. #PS .. "):",
+    "Slipknot: Eyeless🔥 · SIC🔥 · Duality",
+    "  Before I Forget · People=Shit",
+    "  Unsainted · Disasterpiece",
+    "  Wait And Bleed",
+    "Megadeth: Holy Wars · Post American",
+    "  Death From Within",
+    "A7X: Nightmare",
+    "Other: Jazz Crimes · STRYKE Solo",
+    "  Everything Freeze (UNDEAD)",
+    "  Through Fire&Flames⭐ (DragonForce)",
+    "",
+    "Version History:",
+    "v8.5 — Daily key system + 16 songs",
+    "v8.4 — 15 songs + Other filter",
+    "v8.3 — Landscape + Confirm close",
+    "v7.0 — Speed · Anti-AFK · Stats",
+    "v1.0 — Rock beat auto-play",
+    "",
+    "License:",
+    "Free for personal use.",
+    "Made with ❤️ for drummers.",
+    "",
+    "🤝 made by me n team",
+}
+for i, tx in ipairs(crTx) do
+    local f = Instance.new("Frame", t5f)
+    f.Size = UDim2.new(1,-4,0, tx == "" and 4 or 11)
+    f.BackgroundTransparency = 1; f.LayoutOrder = i + 2
+    if tx ~= "" then
+        local bd = tx:find(":") or tx:find("🤝")
+        ln(f, UDim2.new(1,0,1,0), UDim2.new(), tx,
+           bd and C.t1 or C.t3, bd and 7 or 7,
+           bd and Enum.Font.GothamBold or Enum.Font.Gotham)
+    end
+end
+
+-- ═══════════════════════════════
+-- REFRESH
+-- ═══════════════════════════════
+local function ref()
+    pcall(function() tmL.Text = os.date("%H:%M") end)
+
+    if _G._AD then
+        togB.Text = "⏸ Stop"; togB.BackgroundColor3 = C.red
+        sDot.BackgroundColor3 = C.grn
+    else
+        togB.Text = "▶ Play"; togB.BackgroundColor3 = C.grn
+        sDot.BackgroundColor3 = C.tog
+    end
+
+    patB.Text = PATS[pIdx].n .. " ▸"
+    local bs = (pIdx == 3 and mObj) and tostring(mObj.bpm) or (pIdx == 3 and "--" or tostring(PATS[pIdx].b))
+    npBpm.Text = bs .. " BPM"
+
+    if cSong ~= "" then npN.Text = cSong; npA.Text = bs .. " BPM"
+    elseif _G._AD then npN.Text = PATS[pIdx].n; npA.Text = "Pattern"
+    else npN.Text = "Not Playing"; npA.Text = "Select a song" end
+
+    local pc = math.clamp(mPr, 0, 1)
+    pFl.Size = UDim2.new(pc, 0, 1, 0)
+    pFl.BackgroundColor3 = pc >= 1 and C.grn or C.acc
+    pTm.Text = (pIdx == 3 and mObj) and (mTm .. " · " .. math.floor(pc * 100) .. "%") or "∞"
+
+    sH.Text = tostring(tH)
+    sN.Text = tostring(nps())
+    sL.Text = tostring(lps)
+    sB.Text = tostring(barN)
+    sS.Text = secN
+
+    if mObj and not mLd then
+        mLb.Text = "✅ " .. mObj.cnt .. "n · " .. mObj.bpm .. "BPM"
+        mLb.TextColor3 = C.grn
+    elseif not mLd then
+        mLb.Text = "No MIDI"; mLb.TextColor3 = C.t3
+    end
+end
+
+task.spawn(function()
+    while gui and gui.Parent do pcall(ref); task.wait(0.25) end
+end)
+
+-- ═══════════════════════════════
+-- ACTIONS
+-- ═══════════════════════════════
+local function tog()
+    if _G._AD then stp() else go() end
+    ref()
+end
+
+local function cyc()
+    local w = _G._AD
+    if w then stp(); task.wait(0.15) end
+    local n = pIdx + 1
+    if n > 2 then n = 1 end
+    if PATS[n].pm and not isPrem then n = 1 end
+    pIdx = n; barN = 0; introD = true; secN = "IDLE"
+    cSong = ""; lps = 0; mPr = 0
+    ref()
+    if w then go(); ref() end
+end
+
+doLoad = function(u, nm)
+    if mLd then return end
+    mLd = true
+    local w = _G._AD
+    if w then stp(); task.wait(0.15) end
+    ldB.Text = "⏳"
+
+    -- Clear old highlights
+    for i, q in ipairs(qBs) do
+        for _, c in ipairs(q.row:GetChildren()) do
+            if c:IsA("UIStroke") then c:Destroy() end
+        end
+    end
+    -- Highlight current
+    for i, q in ipairs(qBs) do
+        if PS[i].n == nm then
+            local s = Instance.new("UIStroke", q.row)
+            s.Color = C.acc; s.Thickness = 1.5
+        end
+    end
+
+    task.spawn(function()
+        local d, e = loadMd(u, function(m)
+            mLb.Text = "⏳ " .. m; mLb.TextColor3 = C.acc
+        end)
+        mLd = false; ldB.Text = "📥 Load"
+
+        if d then
+            mObj = d; cSong = nm or "Custom"
+            pIdx = 3; barN = 0; secN = "IDLE"; lps = 0; mPr = 0
+            for i, p in ipairs(PS) do
+                if p.n == nm then aSg = i end
+            end
+            ref(); task.wait(0.2)
+            if not _G._AD then go(); ref() end
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "🥁 " .. cSong,
+                    Text = d.cnt .. " notes · " .. d.bpm .. " BPM",
+                    Duration = 3,
+                })
+            end)
+        else
+            mLb.Text = "❌ " .. tostring(e):sub(1, 18)
+            mLb.TextColor3 = C.red
+        end
+    end)
+end
+
+-- ═══════════════════════════════
+-- CONFIRM CLOSE DIALOG
+-- ═══════════════════════════════
+local function showCC()
+    local ov = Instance.new("Frame", gui)
+    ov.Size = UDim2.new(1,0,1,0)
+    ov.BackgroundColor3 = Color3.new(0,0,0)
+    ov.BackgroundTransparency = 0.5
+    ov.BorderSizePixel = 0; ov.ZIndex = 50
+
+    local bx = Instance.new("Frame", ov)
+    bx.Size = UDim2.new(0, 210, 0, 105)
+    bx.Position = UDim2.new(0.5, -105, 0.5, -52)
+    bx.BackgroundColor3 = C.bg; bx.BorderSizePixel = 0; bx.ZIndex = 51
+    cr(bx, 4); Instance.new("UIStroke", bx).Color = C.div
+
+    local tl = ln(bx, UDim2.new(1,0,0,14), UDim2.new(0,0,0,10),
+                 "⚠️ Close Auto Drum?", C.t1, 10, Enum.Font.GothamBold)
+    tl.TextXAlignment = Enum.TextXAlignment.Center; tl.ZIndex = 52
+
+    local m1 = ln(bx, UDim2.new(0.85,0,0,10), UDim2.new(0.075,0,0,28),
+                 "Stop playback and remove", C.t2, 8)
+    m1.TextXAlignment = Enum.TextXAlignment.Center; m1.ZIndex = 52
+
+    local m2 = ln(bx, UDim2.new(0.85,0,0,10), UDim2.new(0.075,0,0,40),
+                 "the script entirely?", C.t2, 8)
+    m2.TextXAlignment = Enum.TextXAlignment.Center; m2.ZIndex = 52
+
+    local yB = bt(bx, UDim2.new(0,74,0,26), UDim2.new(0,18,0,62),
+                 C.red, "Yes, close", C.w, 9)
+    yB.ZIndex = 52
+
+    local nB = bt(bx, UDim2.new(0,74,0,26), UDim2.new(0,118,0,62),
+                 C.card, "Cancel", C.t1, 9)
+    nB.ZIndex = 52
+    Instance.new("UIStroke", nB).Color = C.div
+
+    yB.MouseButton1Click:Connect(function()
+        ov:Destroy()
+        stp(); task.wait(0.1)
+        gui:Destroy()
+        if kC then kC:Disconnect() end
+        _G._AD = nil
+    end)
+
+    nB.MouseButton1Click:Connect(function()
+        ov:Destroy()
+    end)
+end
+
+-- ═══════════════════════════════
+-- CONNECTIONS
+-- ═══════════════════════════════
+togB.MouseButton1Click:Connect(tog)
+patB.MouseButton1Click:Connect(cyc)
+spdB.MouseButton1Click:Connect(function()
+    sI = sI % #SP + 1; sM = SP[sI]
+    sDp.Text = sM .. "x"; spdB.Text = sM .. "x ▸"
+end)
+
+ldB.MouseButton1Click:Connect(function()
+    if not isPrem and cLds >= 1 then
+        mLb.Text = "🔒 Premium"; mLb.TextColor3 = C.acc; return
+    end
+    local u = uBox.Text:match("^%s*(.-)%s*$")
+    if u and u ~= "" then
+        cLds = cLds + 1; aSg = nil
+        doLoad(u, u:match("([^/]+)%.mid") or "Custom")
+    else
+        mLb.Text = "⚠ Paste URL!"; mLb.TextColor3 = C.acc
+    end
+end)
+
+-- Key popup (in settings)
+kBn.MouseButton1Click:Connect(function()
+    if isPrem then return end
+    local kd = Instance.new("Frame", gui)
+    kd.Size = UDim2.new(0, 210, 0, 100)
+    kd.Position = UDim2.new(0.5, -105, 0.35, 0)
+    kd.BackgroundColor3 = C.bg; kd.BorderSizePixel = 0
+    kd.Active = true; kd.Draggable = true; kd.ZIndex = 20
+    cr(kd, 4); Instance.new("UIStroke", kd).Color = C.div
+
+    ln(kd, UDim2.new(1,0,0,12), UDim2.new(0,0,0,4),
+       "🔑 Daily Key", C.t1, 9, Enum.Font.GothamBold
+    ).TextXAlignment = Enum.TextXAlignment.Center
+
+    local kb = Instance.new("TextBox", kd)
+    kb.Size = UDim2.new(0.82, 0, 0, 22)
+    kb.Position = UDim2.new(0.09, 0, 0, 20)
+    kb.BackgroundColor3 = C.card; kb.BorderSizePixel = 0
+    kb.Text = ""; kb.PlaceholderText = "XXXX-XXXX-XXXX-XXXX"
+    kb.PlaceholderColor3 = C.t4; kb.TextColor3 = C.t1
+    kb.TextSize = 9; kb.Font = Enum.Font.GothamBold
+    cr(kb, 3); Instance.new("UIStroke", kb).Color = C.div
+    Instance.new("UIPadding", kb).PaddingLeft = UDim.new(0, 5)
+
+    local ku = bt(kd, UDim2.new(0.35,0,0,18), UDim2.new(0.08,0,0,50),
+                 C.dark, "unlock", C.w, 7)
+    local kc = bt(kd, UDim2.new(0.35,0,0,18), UDim2.new(0.57,0,0,50),
+                 C.card, "cancel", C.t2, 7)
+    local ks = ln(kd, UDim2.new(1,0,0,10), UDim2.new(0,0,0,76),
+                 "", C.t3, 7)
+    ks.TextXAlignment = Enum.TextXAlignment.Center
+
+    ku.MouseButton1Click:Connect(function()
+        if ckK(kb.Text) then
+            isPrem = true; _G._DP = true
+            ks.Text = "✅ Unlocked!"; ks.TextColor3 = C.grn
+            task.wait(0.7); kd:Destroy()
+            stp(); gui:Destroy(); loadMain()
+        else
+            ks.Text = "❌ Invalid/expired"; ks.TextColor3 = C.red
+        end
+    end)
+    kc.MouseButton1Click:Connect(function() kd:Destroy() end)
+end)
+
+-- Window controls
+mnB.MouseButton1Click:Connect(function()
+    guiOn = false; mf.Visible = false; mini.Visible = true
+end)
+mini.MouseButton1Click:Connect(function()
+    guiOn = true; mf.Visible = true; mini.Visible = false
+end)
+
+-- Close → confirm dialog
+clB.MouseButton1Click:Connect(showCC)
+
+-- Keyboard P toggle
+kC = UIS.InputBegan:Connect(function(i, g)
+    if g then return end
+    if i.KeyCode == Enum.KeyCode.P then tog() end
+end)
+
+-- ═══ STARTUP ═══
+aFl("All")
+ref()
+
+pcall(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "🥁 Auto Drum [Reworked]",
+        Text = (isPrem and "⭐" or "🆓") .. " v8.5 · " .. #PS .. " songs · Daily Key",
+        Duration = 3,
+    })
+end)
+
+print("🥁 Auto Drum [Reworked] v8.5")
+print("  " .. (isPrem and "⭐ PREMIUM" or "🆓 FREE") .. " │ " .. #PS .. " songs │ Daily Key System")
+print("  Today's key: " .. genDailyKey(0):sub(1,4) .. "-****-****-****")
+print("  made by me n team")
+
+end -- end loadMain
+
+-- ═══════════════════════════════
+-- ENTRY POINT
+-- ═══════════════════════════════
+if _G._DV then
+    isPrem = _G._DP or false
+    loadMain()
+else
+    showK(function() loadMain() end)
+end
