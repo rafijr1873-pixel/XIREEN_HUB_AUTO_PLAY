@@ -1,0 +1,2 @@
+# XIREEN_HUB_AUTO_PLAY
+Auto player
