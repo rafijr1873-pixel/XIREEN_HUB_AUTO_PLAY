@@ -1,0 +1,1709 @@
+--[=[
+ ███╗   ██╗ ██████╗ ███╗   ██╗███████╗███████╗███╗   ██╗███████╗███████╗
+ ████╗  ██║██╔═══██╗████╗  ██║██╔════╝██╔════╝████╗  ██║██╔════╝██╔════╝
+ ██╔██╗ ██║██║   ██║██╔██╗ ██║███████╗█████╗  ██╔██╗ ██║███████╗█████╗  
+ ██║╚██╗██║██║   ██║██║╚██╗██║╚════██║██╔══╝  ██║╚██╗██║╚════██║██╔══╝  
+ ██║ ╚████║╚██████╔╝██║ ╚████║███████║███████╗██║ ╚████║███████║███████╗
+ ╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚══════╝╚═╝  ╚═══╝╚══════╝╚══════╝
+              ██╗  ██╗██╗   ██╗██████╗     ██╗   ██╗██████╗    ██████╗ 
+              ██║  ██║██║   ██║██╔══██╗    ██║   ██║╚════██╗  ██╔═████╗
+              ███████║██║   ██║██████╔╝    ██║   ██║ █████╔╝  ██║██╔██║
+              ██╔══██║██║   ██║██╔══██╗    ╚██╗ ██╔╝██╔═══╝   ████╔╝██║
+              ██║  ██║╚██████╔╝██████╔╝     ╚████╔╝ ███████╗  ╚██████╔╝
+              ╚═╝  ╚═╝ ╚═════╝ ╚═════╝      ╚═══╝  ╚══════╝   ╚═════╝ 
+         ✦ Nonsense Hub v2.0 - All Features Working ✦
+]=]
+
+-- ══════════════════════════════════════════════════════
+-- SERVICES
+-- ══════════════════════════════════════════════════════
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local StarterGui = game:GetService("StarterGui")
+local TeleportService = game:GetService("TeleportService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
+
+-- ══════════════════════════════════════════════════════
+-- TWEEN PRESETS
+-- ══════════════════════════════════════════════════════
+local tweenFast = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local tweenSmooth = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local tweenBounce = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+-- ══════════════════════════════════════════════════════
+-- FEATURE STATE
+-- ══════════════════════════════════════════════════════
+local States = {
+    -- Main
+    speed = false,
+    walkSpeed = 16,
+    infiniteJump = false,
+    noclip = false,
+    fly = false,
+    flySpeed = 50,
+    -- Combat
+    autoClick = false,
+    clickDelay = 100,
+    -- Visuals
+    esp = false,
+    fullbright = false,
+    noFog = false,
+    fov = 70,
+    -- Teleport
+    clickTP = false,
+    -- Player
+    godMode = false,
+    jumpPower = 50,
+    noFallDmg = false,
+    gravity = 196,
+    -- Misc
+    antiAFK = false,
+}
+
+-- Feature runtime vars
+local flyBV, flyBG
+local espElements = {}
+local antiAFKConn = nil
+local origLighting = {}
+local activeTab = 1
+
+-- ══════════════════════════════════════════════════════
+-- UTILITY HELPERS
+-- ══════════════════════════════════════════════════════
+local function getHumanoid()
+    local c = LocalPlayer.Character
+    return c and c:FindFirstChildOfClass("Humanoid")
+end
+
+local function getHRP()
+    local c = LocalPlayer.Character
+    return c and c:FindFirstChild("HumanoidRootPart")
+end
+
+-- ══════════════════════════════════════════════════════
+-- DESTROY OLD GUI IF EXISTS
+-- ══════════════════════════════════════════════════════
+if LocalPlayer.PlayerGui:FindFirstChild("NonsenseHub") then
+    LocalPlayer.PlayerGui:FindFirstChild("NonsenseHub"):Destroy()
+end
+
+-- ══════════════════════════════════════════════════════
+-- SCREENGUI
+-- ══════════════════════════════════════════════════════
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "NonsenseHub"
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ══════════════════════════════════════════════════════
+-- MAIN FRAME
+-- ══════════════════════════════════════════════════════
+local mainFrame = Instance.new("Frame", screenGui)
+mainFrame.Name = "MainFrame"
+mainFrame.Active = true
+mainFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+mainFrame.BorderSizePixel = 0
+mainFrame.Size = UDim2.new(0, 580, 0, 380)
+mainFrame.Position = UDim2.new(0.5, -290, 0.5, -190)
+mainFrame.ClipsDescendants = true
+
+local mainCorner = Instance.new("UICorner", mainFrame)
+mainCorner.CornerRadius = UDim.new(0, 10)
+
+local mainStroke = Instance.new("UIStroke", mainFrame)
+mainStroke.Color = Color3.fromRGB(70, 130, 255)
+mainStroke.Thickness = 1.5
+mainStroke.Transparency = 0.4
+
+local mainScale = Instance.new("UIScale", mainFrame)
+
+-- Shadow
+local shadow = Instance.new("ImageLabel", mainFrame)
+shadow.Name = "Shadow"
+shadow.BackgroundTransparency = 1
+shadow.Position = UDim2.new(0, -18, 0, -18)
+shadow.Size = UDim2.new(1, 36, 1, 36)
+shadow.ZIndex = 0
+shadow.Image = "rbxassetid://5554236805"
+shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+shadow.ImageTransparency = 0.5
+shadow.ScaleType = Enum.ScaleType.Slice
+shadow.SliceCenter = Rect.new(23, 23, 277, 277)
+
+-- ══════════════════════════════════════════════════════
+-- TOP BAR
+-- ══════════════════════════════════════════════════════
+local topBar = Instance.new("Frame", mainFrame)
+topBar.Name = "TopBar"
+topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+topBar.BorderSizePixel = 0
+topBar.Size = UDim2.new(1, 0, 0, 40)
+topBar.ZIndex = 10
+
+local topCorner = Instance.new("UICorner", topBar)
+topCorner.CornerRadius = UDim.new(0, 10)
+
+local topCover = Instance.new("Frame", topBar)
+topCover.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+topCover.BorderSizePixel = 0
+topCover.Size = UDim2.new(1, 0, 0, 12)
+topCover.Position = UDim2.new(0, 0, 1, -12)
+topCover.ZIndex = 10
+
+local topGrad = Instance.new("UIGradient", topBar)
+topGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 45)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 26))
+})
+topGrad.Rotation = 90
+
+-- Accent Line
+local accentLine = Instance.new("Frame", topBar)
+accentLine.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
+accentLine.BorderSizePixel = 0
+accentLine.Size = UDim2.new(1, 0, 0, 2)
+accentLine.Position = UDim2.new(0, 0, 1, -2)
+accentLine.ZIndex = 11
+
+local accentGrad = Instance.new("UIGradient", accentLine)
+accentGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 120, 255)),
+    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(100, 200, 255)),
+    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(160, 80, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 120, 255))
+})
+
+-- Title
+local titleIcon = Instance.new("TextLabel", topBar)
+titleIcon.BackgroundTransparency = 1
+titleIcon.Position = UDim2.new(0, 12, 0, 0)
+titleIcon.Size = UDim2.new(0, 30, 1, 0)
+titleIcon.Font = Enum.Font.SourceSansBold
+titleIcon.Text = "🌀"
+titleIcon.TextSize = 20
+titleIcon.ZIndex = 11
+
+local titleLabel = Instance.new("TextLabel", topBar)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Position = UDim2.new(0, 38, 0, 0)
+titleLabel.Size = UDim2.new(0.4, 0, 1, 0)
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Text = "Nonsense Hub"
+titleLabel.TextColor3 = Color3.fromRGB(230, 240, 255)
+titleLabel.TextSize = 16
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.ZIndex = 11
+
+local versionLabel = Instance.new("TextLabel", topBar)
+versionLabel.BackgroundTransparency = 1
+versionLabel.Position = UDim2.new(0, 155, 0, 0)
+versionLabel.Size = UDim2.new(0, 40, 1, 0)
+versionLabel.Font = Enum.Font.Gotham
+versionLabel.Text = "v2.0"
+versionLabel.TextColor3 = Color3.fromRGB(100, 160, 255)
+versionLabel.TextSize = 10
+versionLabel.TextTransparency = 0.3
+versionLabel.TextXAlignment = Enum.TextXAlignment.Left
+versionLabel.ZIndex = 11
+
+-- Close Button
+local closeBtn = Instance.new("TextButton", topBar)
+closeBtn.Name = "Close"
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 55, 55)
+closeBtn.BackgroundTransparency = 0.85
+closeBtn.BorderSizePixel = 0
+closeBtn.Position = UDim2.new(1, -36, 0.5, -11)
+closeBtn.Size = UDim2.new(0, 22, 0, 22)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+closeBtn.TextSize = 12
+closeBtn.ZIndex = 12
+closeBtn.AutoButtonColor = false
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+
+-- Minimize Button
+local minBtn = Instance.new("TextButton", topBar)
+minBtn.Name = "Minimize"
+minBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+minBtn.BackgroundTransparency = 0.85
+minBtn.BorderSizePixel = 0
+minBtn.Position = UDim2.new(1, -64, 0.5, -11)
+minBtn.Size = UDim2.new(0, 22, 0, 22)
+minBtn.Font = Enum.Font.GothamBold
+minBtn.Text = "─"
+minBtn.TextColor3 = Color3.fromRGB(255, 210, 100)
+minBtn.TextSize = 14
+minBtn.ZIndex = 12
+minBtn.AutoButtonColor = false
+Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 6)
+
+-- ══════════════════════════════════════════════════════
+-- SIDEBAR
+-- ══════════════════════════════════════════════════════
+local sidebar = Instance.new("Frame", mainFrame)
+sidebar.Name = "Sidebar"
+sidebar.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+sidebar.BorderSizePixel = 0
+sidebar.Size = UDim2.new(0, 135, 1, -42)
+sidebar.Position = UDim2.new(0, 0, 0, 42)
+sidebar.ZIndex = 5
+
+local sideGrad = Instance.new("UIGradient", sidebar)
+sideGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 42)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 28))
+})
+sideGrad.Rotation = 180
+
+local sidePad = Instance.new("UIPadding", sidebar)
+sidePad.PaddingTop = UDim.new(0, 8)
+sidePad.PaddingLeft = UDim.new(0, 6)
+sidePad.PaddingRight = UDim.new(0, 6)
+
+local sideLayout = Instance.new("UIListLayout", sidebar)
+sideLayout.Padding = UDim.new(0, 4)
+sideLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Sidebar divider
+local sideLine = Instance.new("Frame", mainFrame)
+sideLine.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
+sideLine.BackgroundTransparency = 0.6
+sideLine.BorderSizePixel = 0
+sideLine.Size = UDim2.new(0, 1, 1, -42)
+sideLine.Position = UDim2.new(0, 135, 0, 42)
+sideLine.ZIndex = 6
+
+-- ══════════════════════════════════════════════════════
+-- CONTENT AREA
+-- ══════════════════════════════════════════════════════
+local contentArea = Instance.new("Frame", mainFrame)
+contentArea.Name = "Content"
+contentArea.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+contentArea.BorderSizePixel = 0
+contentArea.Size = UDim2.new(1, -136, 1, -42)
+contentArea.Position = UDim2.new(0, 136, 0, 42)
+contentArea.ZIndex = 2
+contentArea.ClipsDescendants = true
+
+local contentGrad = Instance.new("UIGradient", contentArea)
+contentGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 38))
+})
+contentGrad.Rotation = 150
+
+-- Page Title
+local pageTitle = Instance.new("TextLabel", contentArea)
+pageTitle.BackgroundTransparency = 1
+pageTitle.Position = UDim2.new(0, 14, 0, 6)
+pageTitle.Size = UDim2.new(1, -28, 0, 24)
+pageTitle.Font = Enum.Font.GothamBold
+pageTitle.Text = "🏠 Main"
+pageTitle.TextColor3 = Color3.fromRGB(210, 225, 255)
+pageTitle.TextSize = 15
+pageTitle.TextXAlignment = Enum.TextXAlignment.Left
+pageTitle.ZIndex = 4
+
+local pageSep = Instance.new("Frame", contentArea)
+pageSep.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
+pageSep.BackgroundTransparency = 0.7
+pageSep.BorderSizePixel = 0
+pageSep.Position = UDim2.new(0, 14, 0, 34)
+pageSep.Size = UDim2.new(1, -28, 0, 1)
+pageSep.ZIndex = 4
+
+-- ══════════════════════════════════════════════════════
+-- NOTIFICATION SYSTEM
+-- ══════════════════════════════════════════════════════
+local notifY = 0
+
+local function notify(title, text, duration)
+    duration = duration or 3
+
+    local notif = Instance.new("Frame", screenGui)
+    notif.BackgroundColor3 = Color3.fromRGB(25, 25, 38)
+    notif.BorderSizePixel = 0
+    notif.Size = UDim2.new(0, 240, 0, 56)
+    notif.Position = UDim2.new(1, 10, 1, -66 - notifY)
+    notif.ZIndex = 50
+    notif.ClipsDescendants = true
+
+    Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
+
+    local ns = Instance.new("UIStroke", notif)
+    ns.Color = Color3.fromRGB(70, 130, 255)
+    ns.Thickness = 1
+    ns.Transparency = 0.5
+
+    local nAccent = Instance.new("Frame", notif)
+    nAccent.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
+    nAccent.BorderSizePixel = 0
+    nAccent.Size = UDim2.new(0, 3, 1, 0)
+    nAccent.ZIndex = 51
+
+    local nTitle = Instance.new("TextLabel", notif)
+    nTitle.BackgroundTransparency = 1
+    nTitle.Position = UDim2.new(0, 12, 0, 4)
+    nTitle.Size = UDim2.new(1, -16, 0, 18)
+    nTitle.Font = Enum.Font.GothamBold
+    nTitle.Text = title
+    nTitle.TextColor3 = Color3.fromRGB(100, 170, 255)
+    nTitle.TextSize = 12
+    nTitle.TextXAlignment = Enum.TextXAlignment.Left
+    nTitle.ZIndex = 51
+
+    local nText = Instance.new("TextLabel", notif)
+    nText.BackgroundTransparency = 1
+    nText.Position = UDim2.new(0, 12, 0, 22)
+    nText.Size = UDim2.new(1, -16, 0, 30)
+    nText.Font = Enum.Font.Gotham
+    nText.Text = text
+    nText.TextColor3 = Color3.fromRGB(180, 195, 220)
+    nText.TextSize = 11
+    nText.TextXAlignment = Enum.TextXAlignment.Left
+    nText.TextWrapped = true
+    nText.ZIndex = 51
+
+    local yOff = notifY
+    notifY = notifY + 62
+
+    TweenService:Create(notif, tweenSmooth, {
+        Position = UDim2.new(1, -250, 1, -66 - yOff)
+    }):Play()
+
+    task.delay(duration, function()
+        TweenService:Create(notif, tweenSmooth, {
+            Position = UDim2.new(1, 10, 1, -66 - yOff)
+        }):Play()
+        task.delay(0.5, function()
+            notif:Destroy()
+            notifY = math.max(0, notifY - 62)
+        end)
+    end)
+end
+
+-- ══════════════════════════════════════════════════════
+-- UI BUILDER HELPERS
+-- ══════════════════════════════════════════════════════
+local function createPage(name)
+    local page = Instance.new("ScrollingFrame", contentArea)
+    page.Name = "Page_" .. name
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.Position = UDim2.new(0, 0, 0, 40)
+    page.Size = UDim2.new(1, 0, 1, -40)
+    page.ScrollBarThickness = 3
+    page.ScrollBarImageColor3 = Color3.fromRGB(70, 130, 255)
+    page.ScrollBarImageTransparency = 0.3
+    page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.Visible = false
+    page.ZIndex = 3
+
+    local lay = Instance.new("UIListLayout", page)
+    lay.Padding = UDim.new(0, 5)
+    lay.SortOrder = Enum.SortOrder.LayoutOrder
+
+    local pad = Instance.new("UIPadding", page)
+    pad.PaddingTop = UDim.new(0, 4)
+    pad.PaddingBottom = UDim.new(0, 8)
+    pad.PaddingLeft = UDim.new(0, 10)
+    pad.PaddingRight = UDim.new(0, 12)
+
+    return page
+end
+
+local function createSection(parent, text, order)
+    local lbl = Instance.new("TextLabel", parent)
+    lbl.BackgroundTransparency = 1
+    lbl.Size = UDim2.new(1, 0, 0, 20)
+    lbl.Font = Enum.Font.GothamBold
+    lbl.Text = "  " .. text
+    lbl.TextColor3 = Color3.fromRGB(100, 170, 255)
+    lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.LayoutOrder = order
+    lbl.ZIndex = 4
+
+    local sep = Instance.new("Frame", parent)
+    sep.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    sep.BorderSizePixel = 0
+    sep.Size = UDim2.new(1, 0, 0, 1)
+    sep.LayoutOrder = order + 1
+    sep.ZIndex = 4
+end
+
+local function createToggle(parent, text, default, callback, order)
+    local toggled = default or false
+
+    local btn = Instance.new("TextButton", parent)
+    btn.Name = "T_" .. text
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 58)
+    btn.BorderSizePixel = 0
+    btn.Size = UDim2.new(1, 0, 0, 34)
+    btn.Text = ""
+    btn.AutoButtonColor = false
+    btn.LayoutOrder = order
+    btn.ZIndex = 4
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+    local stroke = Instance.new("UIStroke", btn)
+    stroke.Color = Color3.fromRGB(55, 55, 75)
+    stroke.Thickness = 1
+    stroke.Transparency = 0.4
+
+    local lbl = Instance.new("TextLabel", btn)
+    lbl.BackgroundTransparency = 1
+    lbl.Position = UDim2.new(0, 12, 0, 0)
+    lbl.Size = UDim2.new(0.65, 0, 1, 0)
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.Text = text
+    lbl.TextColor3 = Color3.fromRGB(185, 200, 225)
+    lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 5
+
+    local ind = Instance.new("Frame", btn)
+    ind.BackgroundColor3 = toggled and Color3.fromRGB(50, 180, 110) or Color3.fromRGB(70, 70, 95)
+    ind.BorderSizePixel = 0
+    ind.Size = UDim2.new(0, 34, 0, 17)
+    ind.Position = UDim2.new(1, -46, 0.5, -8)
+    ind.ZIndex = 5
+    Instance.new("UICorner", ind).CornerRadius = UDim.new(1, 0)
+
+    local circle = Instance.new("Frame", ind)
+    circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    circle.BorderSizePixel = 0
+    circle.Size = UDim2.new(0, 13, 0, 13)
+    circle.Position = toggled and UDim2.new(1, -15, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
+    circle.ZIndex = 6
+    Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+
+    local function refresh()
+        if toggled then
+            TweenService:Create(ind, tweenFast, {BackgroundColor3 = Color3.fromRGB(50, 180, 110)}):Play()
+            TweenService:Create(circle, tweenFast, {Position = UDim2.new(1, -15, 0.5, -6)}):Play()
+            TweenService:Create(stroke, tweenFast, {Color = Color3.fromRGB(50, 180, 110), Transparency = 0.3}):Play()
+        else
+            TweenService:Create(ind, tweenFast, {BackgroundColor3 = Color3.fromRGB(70, 70, 95)}):Play()
+            TweenService:Create(circle, tweenFast, {Position = UDim2.new(0, 2, 0.5, -6)}):Play()
+            TweenService:Create(stroke, tweenFast, {Color = Color3.fromRGB(55, 55, 75), Transparency = 0.4}):Play()
+        end
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        toggled = not toggled
+        refresh()
+        callback(toggled)
+    end)
+
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, tweenFast, {BackgroundColor3 = Color3.fromRGB(50, 50, 72)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, tweenFast, {BackgroundColor3 = Color3.fromRGB(40, 40, 58)}):Play()
+    end)
+
+    if toggled then refresh(); callback(true) end
+    return btn
+end
+
+local function createSlider(parent, text, min, max, default, callback, order)
+    local value = default or min
+
+    local container = Instance.new("Frame", parent)
+    container.BackgroundColor3 = Color3.fromRGB(40, 40, 58)
+    container.BorderSizePixel = 0
+    container.Size = UDim2.new(1, 0, 0, 50)
+    container.LayoutOrder = order
+    container.ZIndex = 4
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 8)
+    Instance.new("UIStroke", container).Color = Color3.fromRGB(55, 55, 75)
+
+    local lbl = Instance.new("TextLabel", container)
+    lbl.BackgroundTransparency = 1
+    lbl.Position = UDim2.new(0, 12, 0, 2)
+    lbl.Size = UDim2.new(0.55, 0, 0, 20)
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.Text = text
+    lbl.TextColor3 = Color3.fromRGB(185, 200, 225)
+    lbl.TextSize = 12
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 5
+
+    local valLbl = Instance.new("TextLabel", container)
+    valLbl.BackgroundTransparency = 1
+    valLbl.Position = UDim2.new(0.6, 0, 0, 2)
+    valLbl.Size = UDim2.new(0.35, 0, 0, 20)
+    valLbl.Font = Enum.Font.GothamBold
+    valLbl.Text = tostring(value)
+    valLbl.TextColor3 = Color3.fromRGB(100, 170, 255)
+    valLbl.TextSize = 12
+    valLbl.TextXAlignment = Enum.TextXAlignment.Right
+    valLbl.ZIndex = 5
+
+    local bg = Instance.new("Frame", container)
+    bg.Name = "SliderBG"
+    bg.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
+    bg.BorderSizePixel = 0
+    bg.Position = UDim2.new(0, 12, 0, 28)
+    bg.Size = UDim2.new(1, -24, 0, 6)
+    bg.ZIndex = 5
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
+
+    local fill = Instance.new("Frame", bg)
+    fill.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
+    fill.BorderSizePixel = 0
+    fill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
+    fill.ZIndex = 6
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
+    local fillGrad = Instance.new("UIGradient", fill)
+    fillGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 120, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 200, 255))
+    })
+
+    local knob = Instance.new("Frame", bg)
+    knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    knob.BorderSizePixel = 0
+    knob.Size = UDim2.new(0, 14, 0, 14)
+    knob.Position = UDim2.new((value - min) / (max - min), -7, 0.5, -7)
+    knob.ZIndex = 7
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    local isDragging = false
+
+    local function update(inputPos)
+        local rel = math.clamp((inputPos.X - bg.AbsolutePosition.X) / bg.AbsoluteSize.X, 0, 1)
+        value = math.floor(min + (max - min) * rel)
+        valLbl.Text = tostring(value)
+        fill.Size = UDim2.new(rel, 0, 1, 0)
+        knob.Position = UDim2.new(rel, -7, 0.5, -7)
+        callback(value)
+    end
+
+    bg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+            update(input.Position)
+        end
+    end)
+
+    knob.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or
+           input.UserInputType == Enum.UserInputType.Touch) then
+            update(input.Position)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = false
+        end
+    end)
+
+    return container
+end
+
+local function createButton(parent, text, callback, order)
+    local btn = Instance.new("TextButton", parent)
+    btn.BackgroundColor3 = Color3.fromRGB(55, 100, 220)
+    btn.BackgroundTransparency = 0.25
+    btn.BorderSizePixel = 0
+    btn.Size = UDim2.new(1, 0, 0, 32)
+    btn.Font = Enum.Font.GothamMedium
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(220, 235, 255)
+    btn.TextSize = 12
+    btn.AutoButtonColor = false
+    btn.LayoutOrder = order
+    btn.ZIndex = 4
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+    btn.MouseButton1Click:Connect(callback)
+
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.05}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.25}):Play()
+    end)
+
+    return btn
+end
+
+local function createLabel(parent, text, order)
+    local lbl = Instance.new("TextLabel", parent)
+    lbl.BackgroundTransparency = 1
+    lbl.Size = UDim2.new(1, 0, 0, 18)
+    lbl.Font = Enum.Font.Gotham
+    lbl.Text = text
+    lbl.TextColor3 = Color3.fromRGB(140, 150, 170)
+    lbl.TextSize = 11
+    lbl.TextWrapped = true
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.LayoutOrder = order
+    lbl.ZIndex = 4
+    return lbl
+end
+
+-- ══════════════════════════════════════════════════════
+-- TAB DEFINITIONS
+-- ══════════════════════════════════════════════════════
+local tabNames = {
+    "🏠 Main",
+    "⚔️ Combat",
+    "👁️ Visuals",
+    "🌍 Teleport",
+    "🎮 Player",
+    "🔧 Misc",
+    "⚙️ Settings"
+}
+
+local tabButtons = {}
+local pages = {}
+
+-- Create Tab Buttons
+for i, name in ipairs(tabNames) do
+    local tab = Instance.new("TextButton", sidebar)
+    tab.Name = "Tab_" .. i
+    tab.BackgroundColor3 = (i == 1) and Color3.fromRGB(55, 110, 255) or Color3.fromRGB(35, 35, 50)
+    tab.BackgroundTransparency = (i == 1) and 0.15 or 0.45
+    tab.BorderSizePixel = 0
+    tab.Size = UDim2.new(1, 0, 0, 30)
+    tab.Font = (i == 1) and Enum.Font.GothamSemibold or Enum.Font.Gotham
+    tab.Text = name
+    tab.TextColor3 = (i == 1) and Color3.fromRGB(225, 240, 255) or Color3.fromRGB(135, 135, 160)
+    tab.TextSize = 11
+    tab.AutoButtonColor = false
+    tab.LayoutOrder = i
+    tab.ZIndex = 6
+    Instance.new("UICorner", tab).CornerRadius = UDim.new(0, 7)
+
+    tabButtons[i] = tab
+end
+
+-- Create Pages
+for i, name in ipairs(tabNames) do
+    pages[i] = createPage(name)
+    if i == 1 then pages[i].Visible = true end
+end
+
+-- ══════════════════════════════════════════════════════
+-- PAGE 1: 🏠 MAIN
+-- ══════════════════════════════════════════════════════
+createSection(pages[1], "MOVEMENT", 1)
+
+createToggle(pages[1], "⚡ Speed Hack", false, function(state)
+    States.speed = state
+    if not state then
+        local h = getHumanoid()
+        if h then h.WalkSpeed = 16 end
+    end
+    notify("Speed Hack", state and "Enabled" or "Disabled", 2)
+end, 3)
+
+createSlider(pages[1], "Walk Speed", 16, 500, 16, function(val)
+    States.walkSpeed = val
+end, 4)
+
+createToggle(pages[1], "🦘 Infinite Jump", false, function(state)
+    States.infiniteJump = state
+    notify("Infinite Jump", state and "Enabled" or "Disabled", 2)
+end, 5)
+
+createToggle(pages[1], "👻 Noclip", false, function(state)
+    States.noclip = state
+    notify("Noclip", state and "Enabled - walk through walls" or "Disabled", 2)
+end, 6)
+
+createSection(pages[1], "FLIGHT", 7)
+
+createToggle(pages[1], "🕊️ Fly Mode", false, function(state)
+    States.fly = state
+    if state then
+        local hrp = getHRP()
+        if hrp then
+            flyBV = Instance.new("BodyVelocity", hrp)
+            flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            flyBV.Velocity = Vector3.zero
+
+            flyBG = Instance.new("BodyGyro", hrp)
+            flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+            flyBG.D = 200
+            flyBG.P = 10000
+        end
+    else
+        if flyBV then flyBV:Destroy() flyBV = nil end
+        if flyBG then flyBG:Destroy() flyBG = nil end
+    end
+    notify("Fly", state and "Enabled - WASD + Space/LShift" or "Disabled", 3)
+end, 9)
+
+createSlider(pages[1], "Fly Speed", 10, 300, 50, function(val)
+    States.flySpeed = val
+end, 10)
+
+-- ══════════════════════════════════════════════════════
+-- PAGE 2: ⚔️ COMBAT
+-- ══════════════════════════════════════════════════════
+createSection(pages[2], "AUTO", 1)
+
+createToggle(pages[2], "🖱️ Auto Click (Tool)", false, function(state)
+    States.autoClick = state
+    notify("Auto Click", state and "Enabled - equip a tool!" or "Disabled", 2)
+end, 3)
+
+createSlider(pages[2], "Click Delay (ms)", 50, 1000, 100, function(val)
+    States.clickDelay = val
+end, 4)
+
+createSection(pages[2], "REACH", 5)
+
+createToggle(pages[2], "🗡️ Extended Reach", false, function(state)
+    if state then
+        local char = LocalPlayer.Character
+        if char then
+            for _, tool in pairs(char:GetChildren()) do
+                if tool:IsA("Tool") then
+                    local handle = tool:FindFirstChild("Handle")
+                    if handle then
+                        handle.Size = Vector3.new(1, 1, 50)
+                        handle.Transparency = 0.8
+                        handle.Massless = true
+                    end
+                end
+            end
+        end
+        notify("Reach", "Extended - re-equip tool if needed", 2)
+    else
+        local char = LocalPlayer.Character
+        if char then
+            for _, tool in pairs(char:GetChildren()) do
+                if tool:IsA("Tool") then
+                    local handle = tool:FindFirstChild("Handle")
+                    if handle then
+                        handle.Size = Vector3.new(1, 1, 1)
+                        handle.Transparency = 0
+                    end
+                end
+            end
+        end
+        notify("Reach", "Reset to normal", 2)
+    end
+end, 7)
+
+createSection(pages[2], "INFO", 9)
+createLabel(pages[2], "⚠️ Combat features depend on game", 10)
+createLabel(pages[2], "⚠️ Server-side checks may block some", 11)
+
+-- ══════════════════════════════════════════════════════
+-- PAGE 3: 👁️ VISUALS
+-- ══════════════════════════════════════════════════════
+createSection(pages[3], "PLAYERS", 1)
+
+createToggle(pages[3], "👁️ ESP Highlight", false, function(state)
+    States.esp = state
+    if state then
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character then
+                -- Highlight
+                local hl = Instance.new("Highlight")
+                hl.Name = "NonsenseESP"
+                hl.FillColor = Color3.fromRGB(255, 50, 50)
+                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                hl.FillTransparency = 0.5
+                hl.OutlineTransparency = 0
+                hl.Parent = plr.Character
+                -- Name Billboard
+                local head = plr.Character:FindFirstChild("Head")
+                if head then
+                    local bb = Instance.new("BillboardGui")
+                    bb.Name = "NonsenseESPTag"
+                    bb.Adornee = head
+                    bb.Size = UDim2.new(0, 200, 0, 40)
+                    bb.StudsOffset = Vector3.new(0, 2.5, 0)
+                    bb.AlwaysOnTop = true
+                    bb.Parent = head
+
+                    local nameTag = Instance.new("TextLabel", bb)
+                    nameTag.BackgroundTransparency = 1
+                    nameTag.Size = UDim2.new(1, 0, 0.5, 0)
+                    nameTag.Font = Enum.Font.GothamBold
+                    nameTag.Text = plr.DisplayName
+                    nameTag.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    nameTag.TextStrokeTransparency = 0
+                    nameTag.TextSize = 14
+
+                    local distTag = Instance.new("TextLabel", bb)
+                    distTag.Name = "Dist"
+                    distTag.BackgroundTransparency = 1
+                    distTag.Position = UDim2.new(0, 0, 0.5, 0)
+                    distTag.Size = UDim2.new(1, 0, 0.5, 0)
+                    distTag.Font = Enum.Font.Gotham
+                    distTag.Text = "0m"
+                    distTag.TextColor3 = Color3.fromRGB(200, 200, 200)
+                    distTag.TextStrokeTransparency = 0.3
+                    distTag.TextSize = 12
+                end
+                espElements[plr] = true
+            end
+        end
+        notify("ESP", "Enabled - showing all players", 2)
+    else
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr.Character then
+                local hl = plr.Character:FindFirstChild("NonsenseESP")
+                if hl then hl:Destroy() end
+                local head = plr.Character:FindFirstChild("Head")
+                if head then
+                    local bb = head:FindFirstChild("NonsenseESPTag")
+                    if bb then bb:Destroy() end
+                end
+            end
+        end
+        espElements = {}
+        notify("ESP", "Disabled", 2)
+    end
+end, 3)
+
+createSection(pages[3], "LIGHTING", 5)
+
+createToggle(pages[3], "☀️ Fullbright", false, function(state)
+    States.fullbright = state
+    if state then
+        origLighting.Ambient = Lighting.Ambient
+        origLighting.Brightness = Lighting.Brightness
+        origLighting.OutdoorAmbient = Lighting.OutdoorAmbient
+        Lighting.Ambient = Color3.fromRGB(200, 200, 200)
+        Lighting.Brightness = 2
+        Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
+    else
+        Lighting.Ambient = origLighting.Ambient or Color3.fromRGB(127, 127, 127)
+        Lighting.Brightness = origLighting.Brightness or 1
+        Lighting.OutdoorAmbient = origLighting.OutdoorAmbient or Color3.fromRGB(127, 127, 127)
+    end
+    notify("Fullbright", state and "Enabled" or "Disabled", 2)
+end, 7)
+
+createToggle(pages[3], "🌫️ No Fog", false, function(state)
+    States.noFog = state
+    if state then
+        origLighting.FogEnd = Lighting.FogEnd
+        origLighting.FogStart = Lighting.FogStart
+        Lighting.FogEnd = 9e9
+        Lighting.FogStart = 9e9
+    else
+        Lighting.FogEnd = origLighting.FogEnd or 1e5
+        Lighting.FogStart = origLighting.FogStart or 0
+    end
+    notify("Fog", state and "Removed" or "Restored", 2)
+end, 8)
+
+createSection(pages[3], "CAMERA", 10)
+
+createSlider(pages[3], "Field of View", 30, 120, 70, function(val)
+    States.fov = val
+    Camera.FieldOfView = val
+end, 12)
+
+createSection(pages[3], "WORLD CLEANUP", 14)
+
+createButton(pages[3], "🗑️ Remove Particles/Effects", function()
+    local count = 0
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke")
+        or v:IsA("Sparkles") or v:IsA("Trail") then
+            v.Enabled = false
+            count = count + 1
+        end
+    end
+    notify("Cleanup", "Disabled " .. count .. " particle effects", 2)
+end, 16)
+
+createButton(pages[3], "🖼️ Remove Decals/Textures", function()
+    local count = 0
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("Decal") or v:IsA("Texture") then
+            v.Transparency = 1
+            count = count + 1
+        end
+    end
+    notify("Cleanup", "Hidden " .. count .. " decals/textures", 2)
+end, 17)
+
+-- ══════════════════════════════════════════════════════
+-- PAGE 4: 🌍 TELEPORT
+-- ══════════════════════════════════════════════════════
+createSection(pages[4], "QUICK TELEPORT", 1)
+
+createToggle(pages[4], "📍 Click TP (Ctrl + Click)", false, function(state)
+    States.clickTP = state
+    notify("Click TP", state and "Ctrl + Left Click to teleport" or "Disabled", 2)
+end, 3)
+
+createButton(pages[4], "🎯 TP to Mouse Position", function()
+    local hrp = getHRP()
+    if hrp then
+        hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
+        notify("Teleport", "Teleported to cursor", 2)
+    end
+end, 4)
+
+createSection(pages[4], "PLAYERS", 6)
+
+local playerBtns = {}
+
+local function refreshPlayerList()
+    for _, b in pairs(playerBtns) do
+        if b and b.Parent then b:Destroy() end
+    end
+    playerBtns = {}
+
+    local ord = 8
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            ord = ord + 1
+            local b = createButton(pages[4], "📍 " .. plr.DisplayName .. " (@" .. plr.Name .. ")", function()
+                if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = getHRP()
+                    if hrp then
+                        hrp.CFrame = plr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                        notify("Teleport", "Teleported to " .. plr.DisplayName, 2)
+                    end
+                else
+                    notify("Error", plr.DisplayName .. " character not found", 2)
+                end
+            end, ord)
+            table.insert(playerBtns, b)
+        end
+    end
+
+    if #playerBtns == 0 then
+        createLabel(pages[4], "  No other players in server", ord + 1)
+    end
+end
+
+createButton(pages[4], "🔄 Refresh Player List", function()
+    refreshPlayerList()
+    notify("Teleport", "Player list refreshed", 2)
+end, 7)
+
+refreshPlayerList()
+
+-- ══════════════════════════════════════════════════════
+-- PAGE 5: 🎮 PLAYER
+-- ══════════════════════════════════════════════════════
+createSection(pages[5], "SURVIVAL", 1)
+
+createToggle(pages[5], "❤️ God Mode (Client)", false, function(state)
+    States.godMode = state
+    notify("God Mode", state and "Enabled - healing every frame" or "Disabled", 2)
+end, 3)
+
+createToggle(pages[5], "🛡️ No Fall Damage", false, function(state)
+    States.noFallDmg = state
+    local h = getHumanoid()
+    if h then
+        h:SetStateEnabled(Enum.HumanoidStateType.FallingDown, not state)
+        h:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, not state)
+    end
+    notify("Fall Damage", state and "Disabled" or "Enabled", 2)
+end, 4)
+
+createSection(pages[5], "PHYSICS", 6)
+
+createSlider(pages[5], "Jump Power", 50, 500, 50, function(val)
+    States.jumpPower = val
+    local h = getHumanoid()
+    if h then
+        h.UseJumpPower = true
+        h.JumpPower = val
+    end
+end, 8)
+
+createSlider(pages[5], "Gravity", 0, 500, 196, function(val)
+    States.gravity = val
+    Workspace.Gravity = val
+end, 9)
+
+createSection(pages[5], "CHARACTER", 11)
+
+createButton(pages[5], "💀 Reset Character", function()
+    local h = getHumanoid()
+    if h then
+        h.Health = 0
+        notify("Player", "Character reset", 2)
+    end
+end, 13)
+
+createButton(pages[5], "🧊 Freeze Character", function()
+    local hrp = getHRP()
+    if hrp then
+        hrp.Anchored = not hrp.Anchored
+        notify("Player", hrp.Anchored and "Frozen" or "Unfrozen", 2)
+    end
+end, 14)
+
+createButton(pages[5], "📏 Normal Size", function()
+    local char = LocalPlayer.Character
+    if char then
+        local h = char:FindFirstChildOfClass("Humanoid")
+        if h then
+            h.BodyDepthScale.Value = 1
+            h.BodyHeightScale.Value = 1
+            h.BodyWidthScale.Value = 1
+            h.HeadScale.Value = 1
+        end
+    end
+    notify("Player", "Size reset to normal", 2)
+end, 15)
+
+-- ══════════════════════════════════════════════════════
+-- PAGE 6: 🔧 MISC
+-- ══════════════════════════════════════════════════════
+createSection(pages[6], "UTILITY", 1)
+
+createToggle(pages[6], "💤 Anti AFK", false, function(state)
+    States.antiAFK = state
+    if state then
+        antiAFKConn = LocalPlayer.Idled:Connect(function()
+            local vu = game:GetService("VirtualUser")
+            vu:Button2Down(Vector2.zero, Camera.CFrame)
+            task.wait(1)
+            vu:Button2Up(Vector2.zero, Camera.CFrame)
+        end)
+    else
+        if antiAFKConn then
+            antiAFKConn:Disconnect()
+            antiAFKConn = nil
+        end
+    end
+    notify("Anti AFK", state and "You won't be kicked" or "Disabled", 2)
+end, 3)
+
+createButton(pages[6], "🚀 FPS Boost", function()
+    local count = 0
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke")
+        or v:IsA("Sparkles") or v:IsA("Trail") then
+            v.Enabled = false
+            count += 1
+        elseif v:IsA("MeshPart") or v:IsA("Part") then
+            v.Material = Enum.Material.SmoothPlastic
+            v.Reflectance = 0
+        end
+    end
+
+    Lighting.GlobalShadows = false
+    Lighting.FogEnd = 9e9
+
+    for _, v in pairs(Lighting:GetDescendants()) do
+        if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or
+           v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then
+            v.Enabled = false
+        end
+    end
+
+    notify("FPS Boost", "Applied! Disabled " .. count .. " effects", 3)
+end, 4)
+
+createSection(pages[6], "SERVER", 6)
+
+createButton(pages[6], "🔄 Rejoin Server", function()
+    notify("Server", "Rejoining...", 2)
+    task.wait(1)
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end, 8)
+
+createButton(pages[6], "🌐 Server Hop", function()
+    notify("Server", "Finding new server...", 2)
+    task.wait(0.5)
+    local servers = game:GetService("HttpService"):JSONDecode(
+        game:HttpGetAsync(
+            "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+        )
+    )
+    if servers and servers.data then
+        for _, server in pairs(servers.data) do
+            if server.id ~= game.JobId and server.playing < server.maxPlayers then
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
+                return
+            end
+        end
+    end
+    notify("Error", "No available servers found", 2)
+end, 9)
+
+createButton(pages[6], "📋 Copy Server ID", function()
+    if setclipboard then
+        setclipboard(game.JobId)
+        notify("Server", "Job ID copied to clipboard", 2)
+    else
+        notify("Error", "Clipboard not supported", 2)
+    end
+end, 10)
+
+createSection(pages[6], "INFO", 12)
+
+createLabel(pages[6], "  Game: " .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name, 13)
+createLabel(pages[6], "  Server ID: " .. string.sub(game.JobId, 1, 20) .. "...", 14)
+createLabel(pages[6], "  Players: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers, 15)
+
+-- ══════════════════════════════════════════════════════
+-- PAGE 7: ⚙️ SETTINGS
+-- ══════════════════════════════════════════════════════
+createSection(pages[7], "GUI CONTROLS", 1)
+
+createLabel(pages[7], "  Press RightShift to toggle GUI", 3)
+createLabel(pages[7], "  Drag top bar to move window", 4)
+
+createButton(pages[7], "🗑️ Destroy GUI", function()
+    notify("Goodbye", "Destroying Nonsense Hub...", 1)
+    task.wait(1.2)
+    screenGui:Destroy()
+end, 5)
+
+createSection(pages[7], "RESET ALL", 7)
+
+createButton(pages[7], "♻️ Reset All Features", function()
+    -- Reset all states
+    States.speed = false
+    States.noclip = false
+    States.fly = false
+    States.infiniteJump = false
+    States.esp = false
+    States.fullbright = false
+    States.noFog = false
+    States.godMode = false
+    States.clickTP = false
+    States.autoClick = false
+    States.antiAFK = false
+    States.noFallDmg = false
+
+    -- Cleanup fly
+    if flyBV then flyBV:Destroy() flyBV = nil end
+    if flyBG then flyBG:Destroy() flyBG = nil end
+
+    -- Cleanup ESP
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr.Character then
+            local hl = plr.Character:FindFirstChild("NonsenseESP")
+            if hl then hl:Destroy() end
+            local head = plr.Character:FindFirstChild("Head")
+            if head then
+                local bb = head:FindFirstChild("NonsenseESPTag")
+                if bb then bb:Destroy() end
+            end
+        end
+    end
+    espElements = {}
+
+    -- Reset humanoid
+    local h = getHumanoid()
+    if h then
+        h.WalkSpeed = 16
+        h.JumpPower = 50
+        h.UseJumpPower = true
+    end
+
+    -- Reset lighting
+    Lighting.Ambient = origLighting.Ambient or Color3.fromRGB(127, 127, 127)
+    Lighting.Brightness = origLighting.Brightness or 1
+    Lighting.OutdoorAmbient = origLighting.OutdoorAmbient or Color3.fromRGB(127, 127, 127)
+    Lighting.FogEnd = origLighting.FogEnd or 1e5
+    Lighting.FogStart = origLighting.FogStart or 0
+
+    -- Reset camera
+    Camera.FieldOfView = 70
+    Workspace.Gravity = 196.2
+
+    -- Anti AFK
+    if antiAFKConn then antiAFKConn:Disconnect() antiAFKConn = nil end
+
+    notify("Reset", "All features have been reset!", 3)
+end, 9)
+
+createSection(pages[7], "CREDITS", 11)
+createLabel(pages[7], "  🌀 Nonsense Hub v2.0", 13)
+createLabel(pages[7], "  Made with ❤️ for Roblox", 14)
+createLabel(pages[7], "  7 Tabs • 20+ Features", 15)
+createLabel(pages[7], "  All features working client-side", 16)
+
+-- ══════════════════════════════════════════════════════
+-- TAB SWITCHING LOGIC
+-- ══════════════════════════════════════════════════════
+local function switchTab(index)
+    for i, page in ipairs(pages) do
+        page.Visible = (i == index)
+    end
+
+    for i, btn in ipairs(tabButtons) do
+        if i == index then
+            TweenService:Create(btn, tweenFast, {
+                BackgroundColor3 = Color3.fromRGB(55, 110, 255),
+                BackgroundTransparency = 0.15
+            }):Play()
+            btn.Font = Enum.Font.GothamSemibold
+            btn.TextColor3 = Color3.fromRGB(225, 240, 255)
+        else
+            TweenService:Create(btn, tweenFast, {
+                BackgroundColor3 = Color3.fromRGB(35, 35, 50),
+                BackgroundTransparency = 0.45
+            }):Play()
+            btn.Font = Enum.Font.Gotham
+            btn.TextColor3 = Color3.fromRGB(135, 135, 160)
+        end
+    end
+
+    pageTitle.Text = tabNames[index]
+    activeTab = index
+end
+
+for i, btn in ipairs(tabButtons) do
+    btn.MouseButton1Click:Connect(function()
+        switchTab(i)
+    end)
+
+    btn.MouseEnter:Connect(function()
+        if activeTab ~= i then
+            TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.25}):Play()
+        end
+    end)
+    btn.MouseLeave:Connect(function()
+        if activeTab ~= i then
+            TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.45}):Play()
+        end
+    end)
+end
+
+-- ══════════════════════════════════════════════════════
+-- FEATURE IMPLEMENTATIONS (RUNTIME LOOPS)
+-- ══════════════════════════════════════════════════════
+
+-- ♦ Speed Hack
+RunService.Heartbeat:Connect(function()
+    if States.speed then
+        local h = getHumanoid()
+        if h then h.WalkSpeed = States.walkSpeed end
+    end
+
+    if States.godMode then
+        local h = getHumanoid()
+        if h then h.Health = h.MaxHealth end
+    end
+end)
+
+-- ♦ Noclip
+RunService.Stepped:Connect(function()
+    if States.noclip then
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+
+    if States.noFallDmg then
+        local h = getHumanoid()
+        if h then
+            h:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            h:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        end
+    end
+end)
+
+-- ♦ Fly
+RunService.RenderStepped:Connect(function()
+    if States.fly and flyBV and flyBG then
+        flyBG.CFrame = Camera.CFrame
+
+        local dir = Vector3.zero
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            dir = dir + Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            dir = dir - Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            dir = dir - Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            dir = dir + Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            dir = dir + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            dir = dir - Vector3.new(0, 1, 0)
+        end
+
+        flyBV.Velocity = (dir.Magnitude > 0) and (dir.Unit * States.flySpeed) or Vector3.zero
+    end
+
+    -- ESP Distance Update
+    if States.esp then
+        local myHRP = getHRP()
+        if myHRP then
+            for _, plr in pairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer and plr.Character then
+                    local head = plr.Character:FindFirstChild("Head")
+                    if head then
+                        local bb = head:FindFirstChild("NonsenseESPTag")
+                        if bb then
+                            local dist = bb:FindFirstChild("Dist")
+                            if dist then
+                                local d = math.floor((myHRP.Position - head.Position).Magnitude)
+                                dist.Text = d .. "m"
+                                dist.TextColor3 = d < 30 and Color3.fromRGB(255, 80, 80)
+                                    or d < 80 and Color3.fromRGB(255, 200, 80)
+                                    or Color3.fromRGB(80, 255, 80)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- FOV
+    Camera.FieldOfView = States.fov
+end)
+
+-- ♦ Infinite Jump
+UserInputService.JumpRequest:Connect(function()
+    if States.infiniteJump then
+        local h = getHumanoid()
+        if h then
+            h:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+-- ♦ Click Teleport
+Mouse.Button1Down:Connect(function()
+    if States.clickTP and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+        local hrp = getHRP()
+        if hrp then
+            hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
+        end
+    end
+end)
+
+-- ♦ Auto Click
+task.spawn(function()
+    while screenGui.Parent do
+        if States.autoClick then
+            local char = LocalPlayer.Character
+            if char then
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool then
+                    tool:Activate()
+                end
+            end
+        end
+        task.wait(States.clickDelay / 1000)
+    end
+end)
+
+-- ♦ ESP auto-update on player join/leave
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(1)
+        if States.esp then
+            local hl = Instance.new("Highlight")
+            hl.Name = "NonsenseESP"
+            hl.FillColor = Color3.fromRGB(255, 50, 50)
+            hl.FillTransparency = 0.5
+            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+            hl.Parent = plr.Character
+
+            local head = plr.Character:FindFirstChild("Head")
+            if head then
+                local bb = Instance.new("BillboardGui")
+                bb.Name = "NonsenseESPTag"
+                bb.Adornee = head
+                bb.Size = UDim2.new(0, 200, 0, 40)
+                bb.StudsOffset = Vector3.new(0, 2.5, 0)
+                bb.AlwaysOnTop = true
+                bb.Parent = head
+
+                local nameTag = Instance.new("TextLabel", bb)
+                nameTag.BackgroundTransparency = 1
+                nameTag.Size = UDim2.new(1, 0, 0.5, 0)
+                nameTag.Font = Enum.Font.GothamBold
+                nameTag.Text = plr.DisplayName
+                nameTag.TextColor3 = Color3.fromRGB(255, 255, 255)
+                nameTag.TextStrokeTransparency = 0
+                nameTag.TextSize = 14
+
+                local distTag = Instance.new("TextLabel", bb)
+                distTag.Name = "Dist"
+                distTag.BackgroundTransparency = 1
+                distTag.Position = UDim2.new(0, 0, 0.5, 0)
+                distTag.Size = UDim2.new(1, 0, 0.5, 0)
+                distTag.Font = Enum.Font.Gotham
+                distTag.Text = "0m"
+                distTag.TextColor3 = Color3.fromRGB(200, 200, 200)
+                distTag.TextStrokeTransparency = 0.3
+                distTag.TextSize = 12
+            end
+            espElements[plr] = true
+        end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+    espElements[plr] = nil
+end)
+
+-- ♦ Re-setup on character respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    if States.fly then
+        local hrp = char:WaitForChild("HumanoidRootPart", 5)
+        if hrp then
+            if flyBV then flyBV:Destroy() end
+            if flyBG then flyBG:Destroy() end
+            flyBV = Instance.new("BodyVelocity", hrp)
+            flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            flyBV.Velocity = Vector3.zero
+            flyBG = Instance.new("BodyGyro", hrp)
+            flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+            flyBG.D = 200
+            flyBG.P = 10000
+        end
+    end
+
+    if States.noFallDmg then
+        local h = char:WaitForChild("Humanoid", 5)
+        if h then
+            h:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            h:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        end
+    end
+end)
+
+-- ══════════════════════════════════════════════════════
+-- DRAGGING
+-- ══════════════════════════════════════════════════════
+local dragging, dragInput, dragStart, startPos
+
+topBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or
+       input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+topBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or
+       input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        TweenService:Create(mainFrame, TweenInfo.new(0.06), {
+            Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        }):Play()
+    end
+end)
+
+-- ══════════════════════════════════════════════════════
+-- TOGGLE BUTTON (OPEN/CLOSE)
+-- ══════════════════════════════════════════════════════
+local toggleBtn = Instance.new("TextButton", screenGui)
+toggleBtn.Name = "ToggleButton"
+toggleBtn.BackgroundColor3 = Color3.fromRGB(55, 110, 255)
+toggleBtn.BorderSizePixel = 0
+toggleBtn.Size = UDim2.new(0, 46, 0, 46)
+toggleBtn.Position = UDim2.new(0, 10, 0.5, -23)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.Text = "🌀"
+toggleBtn.TextSize = 22
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.ZIndex = 20
+toggleBtn.AutoButtonColor = false
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
+
+local toggleStroke = Instance.new("UIStroke", toggleBtn)
+toggleStroke.Color = Color3.fromRGB(100, 160, 255)
+toggleStroke.Thickness = 2
+toggleStroke.Transparency = 0.3
+
+local isOpen = true
+
+local function toggleGUI()
+    isOpen = not isOpen
+    if isOpen then
+        mainFrame.Visible = true
+        mainScale.Scale = 0.85
+        TweenService:Create(mainScale, tweenBounce, {Scale = 1}):Play()
+        TweenService:Create(toggleBtn, tweenFast, {
+            BackgroundColor3 = Color3.fromRGB(55, 110, 255),
+            Rotation = 0
+        }):Play()
+    else
+        TweenService:Create(mainScale, tweenFast, {Scale = 0.85}):Play()
+        TweenService:Create(toggleBtn, tweenFast, {
+            BackgroundColor3 = Color3.fromRGB(255, 70, 70),
+            Rotation = 180
+        }):Play()
+        task.delay(0.25, function()
+            if not isOpen then mainFrame.Visible = false end
+        end)
+    end
+end
+
+toggleBtn.MouseButton1Click:Connect(toggleGUI)
+
+toggleBtn.MouseEnter:Connect(function()
+    TweenService:Create(toggleBtn, tweenFast, {
+        Size = UDim2.new(0, 52, 0, 52),
+        Position = UDim2.new(0, 7, 0.5, -26)
+    }):Play()
+end)
+toggleBtn.MouseLeave:Connect(function()
+    TweenService:Create(toggleBtn, tweenFast, {
+        Size = UDim2.new(0, 46, 0, 46),
+        Position = UDim2.new(0, 10, 0.5, -23)
+    }):Play()
+end)
+
+-- ══════════════════════════════════════════════════════
+-- CLOSE & MINIMIZE BUTTONS
+-- ══════════════════════════════════════════════════════
+closeBtn.MouseButton1Click:Connect(function()
+    TweenService:Create(mainScale, tweenFast, {Scale = 0}):Play()
+    task.delay(0.3, function()
+        screenGui:Destroy()
+    end)
+end)
+
+closeBtn.MouseEnter:Connect(function()
+    TweenService:Create(closeBtn, tweenFast, {
+        BackgroundTransparency = 0.2,
+        BackgroundColor3 = Color3.fromRGB(255, 40, 40)
+    }):Play()
+end)
+closeBtn.MouseLeave:Connect(function()
+    TweenService:Create(closeBtn, tweenFast, {
+        BackgroundTransparency = 0.85,
+        BackgroundColor3 = Color3.fromRGB(255, 55, 55)
+    }):Play()
+end)
+
+local isMinimized = false
+local savedSize
+
+minBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        savedSize = mainFrame.Size
+        TweenService:Create(mainFrame, tweenSmooth, {
+            Size = UDim2.new(0, 580, 0, 40)
+        }):Play()
+        minBtn.Text = "□"
+    else
+        TweenService:Create(mainFrame, tweenBounce, {
+            Size = savedSize or UDim2.new(0, 580, 0, 380)
+        }):Play()
+        minBtn.Text = "─"
+    end
+end)
+
+minBtn.MouseEnter:Connect(function()
+    TweenService:Create(minBtn, tweenFast, {
+        BackgroundTransparency = 0.2,
+        BackgroundColor3 = Color3.fromRGB(255, 210, 40)
+    }):Play()
+end)
+minBtn.MouseLeave:Connect(function()
+    TweenService:Create(minBtn, tweenFast, {
+        BackgroundTransparency = 0.85,
+        BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    }):Play()
+end)
+
+-- ══════════════════════════════════════════════════════
+-- KEYBIND (RightShift)
+-- ══════════════════════════════════════════════════════
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        toggleGUI()
+    end
+end)
+
+-- ══════════════════════════════════════════════════════
+-- OPENING ANIMATION
+-- ══════════════════════════════════════════════════════
+mainScale.Scale = 0
+mainFrame.Visible = true
+
+task.delay(0.15, function()
+    TweenService:Create(mainScale, tweenBounce, {Scale = 1}):Play()
+end)
+
+-- Accent line shimmer animation
+task.spawn(function()
+    while screenGui.Parent do
+        accentGrad.Offset = Vector2.new(math.sin(tick() * 1.5) * 0.4, 0)
+        task.wait(0.03)
+    end
+end)
+
+-- Title icon spin animation
+task.spawn(function()
+    while screenGui.Parent do
+        TweenService:Create(titleIcon, TweenInfo.new(3, Enum.EasingStyle.Linear), {
+            Rotation = titleIcon.Rotation + 360
+        }):Play()
+        task.wait(3)
+    end
+end)
+
+-- Welcome notification
+task.delay(1, function()
+    notify("🌀 Nonsense Hub", "Loaded! RightShift to toggle. 7 tabs ready.", 4)
+end)
+
+return screenGui
