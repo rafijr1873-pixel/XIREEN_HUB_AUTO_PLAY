@@ -1,0 +1,571 @@
+--[[
+    ============================================
+    ESP Player Script - Roblox
+    Fitur:
+    - Box ESP (kotak di sekitar player)
+    - Name ESP (nama player)
+    - Distance ESP (jarak ke player)
+    - Health Bar ESP (bar HP)
+    - Tracer Lines (garis dari layar ke player)
+    - Team Check (abaikan teammate)
+    - Toggle On/Off
+    ============================================
+]]
+
+-- ===================== KONFIGURASI =====================
+local CONFIG = {
+    -- Toggle Fitur
+    Enabled          = true,        -- ESP aktif/nonaktif
+    BoxESP           = true,        -- Kotak di sekitar player
+    NameESP          = true,        -- Tampilkan nama
+    DistanceESP      = true,        -- Tampilkan jarak
+    HealthBarESP     = true,        -- Bar kesehatan
+    TracerESP        = true,        -- Garis tracer
+    TeamCheck        = false,       -- Abaikan satu team
+
+    -- Warna
+    BoxColor         = Color3.fromRGB(255, 0, 0),      -- Merah
+    NameColor        = Color3.fromRGB(255, 255, 255),   -- Putih
+    DistanceColor    = Color3.fromRGB(200, 200, 200),   -- Abu-abu
+    HealthBarColor   = Color3.fromRGB(0, 255, 0),      -- Hijau
+    TracerColor      = Color3.fromRGB(255, 255, 0),     -- Kuning
+    TeamColor        = Color3.fromRGB(0, 255, 0),       -- Hijau (teammate)
+    EnemyColor       = Color3.fromRGB(255, 0, 0),      -- Merah (musuh)
+
+    -- Pengaturan Lain
+    MaxDistance       = 1000,       -- Jarak maksimal ESP terlihat (studs)
+    BoxThickness     = 1,          -- Ketebalan garis box
+    TracerThickness  = 1,          -- Ketebalan garis tracer
+    TracerOrigin     = "Bottom",   -- "Bottom", "Center", "Top" (asal tracer)
+    TextSize         = 14,         -- Ukuran teks
+    ToggleKey        = Enum.KeyCode.F2,  -- Tombol toggle ESP
+}
+
+-- ===================== SERVICES =====================
+local Players         = game:GetService("Players")
+local RunService      = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera          = workspace.CurrentCamera
+
+local LocalPlayer     = Players.LocalPlayer
+local ESPObjects      = {}  -- Menyimpan semua objek ESP
+
+-- ===================== UTILITY FUNCTIONS =====================
+
+-- Fungsi untuk mengecek apakah posisi ada di layar
+local function WorldToScreen(position)
+    local screenPos, onScreen = Camera:WorldToViewportPoint(position)
+    return Vector2.new(screenPos.X, screenPos.Y), onScreen, screenPos.Z
+end
+
+-- Fungsi untuk mendapatkan sudut (corners) dari karakter
+local function GetCharacterCorners(character)
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return nil end
+
+    local pos = humanoidRootPart.Position
+    local size = Vector3.new(4, 6, 0) -- Ukuran perkiraan karakter
+
+    local topLeft = WorldToScreen((CFrame.new(pos) * CFrame.new(-size.X / 2, size.Y / 2 + 0.5, 0)).Position)
+    local topRight = WorldToScreen((CFrame.new(pos) * CFrame.new(size.X / 2, size.Y / 2 + 0.5, 0)).Position)
+    local bottomLeft = WorldToScreen((CFrame.new(pos) * CFrame.new(-size.X / 2, -size.Y / 2 - 0.5, 0)).Position)
+    local bottomRight = WorldToScreen((CFrame.new(pos) * CFrame.new(size.X / 2, -size.Y / 2 - 0.5, 0)).Position)
+
+    return {
+        TopLeft = topLeft,
+        TopRight = topRight,
+        BottomLeft = bottomLeft,
+        BottomRight = bottomRight
+    }
+end
+
+-- Fungsi untuk mendapatkan bounding box 2D
+local function GetBoundingBox(character)
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return nil end
+
+    local head = character:FindFirstChild("Head")
+    if not head then return nil end
+
+    local pos = humanoidRootPart.Position
+
+    -- Titik atas dan bawah karakter
+    local topPos = (CFrame.new(pos) * CFrame.new(0, 3.5, 0)).Position
+    local bottomPos = (CFrame.new(pos) * CFrame.new(0, -3.5, 0)).Position
+
+    local topScreen, topOnScreen = WorldToScreen(topPos)
+    local bottomScreen, bottomOnScreen = WorldToScreen(bottomPos)
+
+    if not topOnScreen and not bottomOnScreen then
+        return nil
+    end
+
+    local height = math.abs(bottomScreen.Y - topScreen.Y)
+    local width = height / 1.8 -- Rasio lebar:tinggi karakter
+
+    local boxPosition = Vector2.new(topScreen.X - width / 2, topScreen.Y)
+    local boxSize = Vector2.new(width, height)
+
+    return boxPosition, boxSize, topScreen, bottomScreen
+end
+
+-- Cek apakah player satu team
+local function IsTeammate(player)
+    if not CONFIG.TeamCheck then return false end
+    if LocalPlayer.Team == nil then return false end
+    return player.Team == LocalPlayer.Team
+end
+
+-- Mendapatkan warna berdasarkan team
+local function GetColor(player)
+    if CONFIG.TeamCheck then
+        if IsTeammate(player) then
+            return CONFIG.TeamColor
+        else
+            return CONFIG.EnemyColor
+        end
+    end
+    return CONFIG.EnemyColor
+end
+
+-- ===================== DRAWING LIBRARY =====================
+-- Membuat objek Drawing
+
+local function CreateDrawing(type, properties)
+    local drawing = Drawing.new(type)
+    for prop, value in pairs(properties) do
+        drawing[prop] = value
+    end
+    return drawing
+end
+
+-- ===================== ESP CLASS =====================
+
+local ESPClass = {}
+ESPClass.__index = ESPClass
+
+function ESPClass.new(player)
+    local self = setmetatable({}, ESPClass)
+
+    self.Player = player
+    self.Drawings = {}
+
+    -- Box ESP (4 garis membentuk kotak)
+    self.Drawings.BoxOutline = CreateDrawing("Square", {
+        Color = Color3.new(0, 0, 0),
+        Thickness = CONFIG.BoxThickness + 2,
+        Filled = false,
+        Transparency = 0.5,
+        Visible = false,
+    })
+
+    self.Drawings.Box = CreateDrawing("Square", {
+        Color = CONFIG.BoxColor,
+        Thickness = CONFIG.BoxThickness,
+        Filled = false,
+        Transparency = 1,
+        Visible = false,
+    })
+
+    -- Name ESP
+    self.Drawings.Name = CreateDrawing("Text", {
+        Color = CONFIG.NameColor,
+        Size = CONFIG.TextSize,
+        Center = true,
+        Outline = true,
+        OutlineColor = Color3.new(0, 0, 0),
+        Font = Drawing.Fonts.Plex,  -- atau Font = 2
+        Visible = false,
+    })
+
+    -- Distance ESP
+    self.Drawings.Distance = CreateDrawing("Text", {
+        Color = CONFIG.DistanceColor,
+        Size = CONFIG.TextSize - 2,
+        Center = true,
+        Outline = true,
+        OutlineColor = Color3.new(0, 0, 0),
+        Font = Drawing.Fonts.Plex,
+        Visible = false,
+    })
+
+    -- Health Bar (background + bar)
+    self.Drawings.HealthBarOutline = CreateDrawing("Square", {
+        Color = Color3.new(0, 0, 0),
+        Thickness = 1,
+        Filled = true,
+        Transparency = 0.5,
+        Visible = false,
+    })
+
+    self.Drawings.HealthBar = CreateDrawing("Square", {
+        Color = CONFIG.HealthBarColor,
+        Thickness = 1,
+        Filled = true,
+        Transparency = 1,
+        Visible = false,
+    })
+
+    -- Health Text
+    self.Drawings.HealthText = CreateDrawing("Text", {
+        Color = Color3.new(1, 1, 1),
+        Size = CONFIG.TextSize - 4,
+        Center = false,
+        Outline = true,
+        OutlineColor = Color3.new(0, 0, 0),
+        Font = Drawing.Fonts.Plex,
+        Visible = false,
+    })
+
+    -- Tracer
+    self.Drawings.TracerOutline = CreateDrawing("Line", {
+        Color = Color3.new(0, 0, 0),
+        Thickness = CONFIG.TracerThickness + 2,
+        Transparency = 0.5,
+        Visible = false,
+    })
+
+    self.Drawings.Tracer = CreateDrawing("Line", {
+        Color = CONFIG.TracerColor,
+        Thickness = CONFIG.TracerThickness,
+        Transparency = 1,
+        Visible = false,
+    })
+
+    return self
+end
+
+function ESPClass:Update()
+    -- Cek apakah ESP aktif
+    if not CONFIG.Enabled then
+        self:Hide()
+        return
+    end
+
+    -- Cek player valid
+    local player = self.Player
+    if not player or not player.Parent then
+        self:Hide()
+        return
+    end
+
+    -- Jangan tampilkan ESP untuk diri sendiri
+    if player == LocalPlayer then
+        self:Hide()
+        return
+    end
+
+    -- Cek team
+    if CONFIG.TeamCheck and IsTeammate(player) then
+        self:Hide()
+        return
+    end
+
+    -- Cek karakter
+    local character = player.Character
+    if not character then
+        self:Hide()
+        return
+    end
+
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local head = character:FindFirstChild("Head")
+
+    if not humanoidRootPart or not humanoid or not head then
+        self:Hide()
+        return
+    end
+
+    -- Cek apakah player masih hidup
+    if humanoid.Health <= 0 then
+        self:Hide()
+        return
+    end
+
+    -- Hitung jarak
+    local localCharacter = LocalPlayer.Character
+    if not localCharacter or not localCharacter:FindFirstChild("HumanoidRootPart") then
+        self:Hide()
+        return
+    end
+
+    local distance = (humanoidRootPart.Position - localCharacter.HumanoidRootPart.Position).Magnitude
+
+    -- Cek jarak maksimal
+    if distance > CONFIG.MaxDistance then
+        self:Hide()
+        return
+    end
+
+    -- Dapatkan bounding box
+    local boxPosition, boxSize, topScreen, bottomScreen = GetBoundingBox(character)
+
+    if not boxPosition then
+        self:Hide()
+        return
+    end
+
+    -- Cek apakah di layar
+    local _, onScreen = WorldToScreen(humanoidRootPart.Position)
+    if not onScreen then
+        -- Sembunyikan semua kecuali tracer (opsional)
+        self:HideExceptTracer()
+
+        -- Update tracer jika aktif (bahkan saat di luar layar)
+        if CONFIG.TracerESP then
+            self:UpdateTracer(humanoidRootPart, player)
+        end
+        return
+    end
+
+    local espColor = GetColor(player)
+
+    -- ===== UPDATE BOX ESP =====
+    if CONFIG.BoxESP then
+        self.Drawings.BoxOutline.Position = boxPosition
+        self.Drawings.BoxOutline.Size = boxSize
+        self.Drawings.BoxOutline.Visible = true
+
+        self.Drawings.Box.Position = boxPosition
+        self.Drawings.Box.Size = boxSize
+        self.Drawings.Box.Color = espColor
+        self.Drawings.Box.Visible = true
+    else
+        self.Drawings.BoxOutline.Visible = false
+        self.Drawings.Box.Visible = false
+    end
+
+    -- ===== UPDATE NAME ESP =====
+    if CONFIG.NameESP then
+        self.Drawings.Name.Text = player.DisplayName .. " [@" .. player.Name .. "]"
+        self.Drawings.Name.Position = Vector2.new(boxPosition.X + boxSize.X / 2, boxPosition.Y - CONFIG.TextSize - 4)
+        self.Drawings.Name.Color = espColor
+        self.Drawings.Name.Visible = true
+    else
+        self.Drawings.Name.Visible = false
+    end
+
+    -- ===== UPDATE DISTANCE ESP =====
+    if CONFIG.DistanceESP then
+        self.Drawings.Distance.Text = string.format("[%d studs]", math.floor(distance))
+        self.Drawings.Distance.Position = Vector2.new(
+            boxPosition.X + boxSize.X / 2,
+            boxPosition.Y + boxSize.Y + 2
+        )
+        self.Drawings.Distance.Visible = true
+    else
+        self.Drawings.Distance.Visible = false
+    end
+
+    -- ===== UPDATE HEALTH BAR ESP =====
+    if CONFIG.HealthBarESP then
+        local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+        local barWidth = 3
+        local barHeight = boxSize.Y
+        local barX = boxPosition.X - barWidth - 3
+        local barY = boxPosition.Y
+
+        -- Health bar outline (background)
+        self.Drawings.HealthBarOutline.Position = Vector2.new(barX - 1, barY - 1)
+        self.Drawings.HealthBarOutline.Size = Vector2.new(barWidth + 2, barHeight + 2)
+        self.Drawings.HealthBarOutline.Visible = true
+
+        -- Health bar (isi)
+        local healthBarHeight = barHeight * healthPercent
+        local healthBarY = barY + (barHeight - healthBarHeight)
+
+        self.Drawings.HealthBar.Position = Vector2.new(barX, healthBarY)
+        self.Drawings.HealthBar.Size = Vector2.new(barWidth, healthBarHeight)
+
+        -- Warna berdasarkan HP
+        local healthColor = Color3.fromRGB(
+            255 * (1 - healthPercent),
+            255 * healthPercent,
+            0
+        )
+        self.Drawings.HealthBar.Color = healthColor
+        self.Drawings.HealthBar.Visible = true
+
+        -- Health text
+        if healthPercent < 1 then
+            self.Drawings.HealthText.Text = tostring(math.floor(humanoid.Health))
+            self.Drawings.HealthText.Position = Vector2.new(barX - 2, healthBarY - 6)
+            self.Drawings.HealthText.Color = healthColor
+            self.Drawings.HealthText.Visible = true
+        else
+            self.Drawings.HealthText.Visible = false
+        end
+    else
+        self.Drawings.HealthBarOutline.Visible = false
+        self.Drawings.HealthBar.Visible = false
+        self.Drawings.HealthText.Visible = false
+    end
+
+    -- ===== UPDATE TRACER ESP =====
+    if CONFIG.TracerESP then
+        self:UpdateTracer(humanoidRootPart, player)
+    else
+        self.Drawings.TracerOutline.Visible = false
+        self.Drawings.Tracer.Visible = false
+    end
+end
+
+function ESPClass:UpdateTracer(humanoidRootPart, player)
+    local footPos = (CFrame.new(humanoidRootPart.Position) * CFrame.new(0, -3, 0)).Position
+    local screenPos, onScreen = WorldToScreen(footPos)
+
+    if not onScreen then
+        self.Drawings.TracerOutline.Visible = false
+        self.Drawings.Tracer.Visible = false
+        return
+    end
+
+    -- Titik asal tracer
+    local viewportSize = Camera.ViewportSize
+    local fromPos
+
+    if CONFIG.TracerOrigin == "Bottom" then
+        fromPos = Vector2.new(viewportSize.X / 2, viewportSize.Y)
+    elseif CONFIG.TracerOrigin == "Center" then
+        fromPos = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+    elseif CONFIG.TracerOrigin == "Top" then
+        fromPos = Vector2.new(viewportSize.X / 2, 0)
+    else
+        fromPos = Vector2.new(viewportSize.X / 2, viewportSize.Y)
+    end
+
+    local espColor = GetColor(player)
+
+    self.Drawings.TracerOutline.From = fromPos
+    self.Drawings.TracerOutline.To = screenPos
+    self.Drawings.TracerOutline.Visible = true
+
+    self.Drawings.Tracer.From = fromPos
+    self.Drawings.Tracer.To = screenPos
+    self.Drawings.Tracer.Color = espColor
+    self.Drawings.Tracer.Visible = true
+end
+
+function ESPClass:Hide()
+    for _, drawing in pairs(self.Drawings) do
+        drawing.Visible = false
+    end
+end
+
+function ESPClass:HideExceptTracer()
+    for name, drawing in pairs(self.Drawings) do
+        if name ~= "Tracer" and name ~= "TracerOutline" then
+            drawing.Visible = false
+        end
+    end
+end
+
+function ESPClass:Destroy()
+    for _, drawing in pairs(self.Drawings) do
+        drawing:Remove()
+    end
+    self.Drawings = {}
+end
+
+-- ===================== MAIN ESP MANAGER =====================
+
+local ESPManager = {}
+
+-- Tambah ESP untuk player
+function ESPManager:AddPlayer(player)
+    if player == LocalPlayer then return end
+    if ESPObjects[player] then return end
+
+    ESPObjects[player] = ESPClass.new(player)
+    print("[ESP] Ditambahkan: " .. player.Name)
+end
+
+-- Hapus ESP untuk player
+function ESPManager:RemovePlayer(player)
+    if ESPObjects[player] then
+        ESPObjects[player]:Destroy()
+        ESPObjects[player] = nil
+        print("[ESP] Dihapus: " .. player.Name)
+    end
+end
+
+-- Inisialisasi ESP untuk semua player yang sudah ada
+function ESPManager:Initialize()
+    for _, player in ipairs(Players:GetPlayers()) do
+        self:AddPlayer(player)
+    end
+end
+
+-- ===================== EVENT LISTENERS =====================
+
+-- Player bergabung
+Players.PlayerAdded:Connect(function(player)
+    ESPManager:AddPlayer(player)
+end)
+
+-- Player keluar
+Players.PlayerRemoving:Connect(function(player)
+    ESPManager:RemovePlayer(player)
+end)
+
+-- Toggle ESP dengan tombol keyboard
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == CONFIG.ToggleKey then
+        CONFIG.Enabled = not CONFIG.Enabled
+        print("[ESP] Status: " .. (CONFIG.Enabled and "AKTIF ✅" or "NONAKTIF ❌"))
+
+        if not CONFIG.Enabled then
+            for _, esp in pairs(ESPObjects) do
+                esp:Hide()
+            end
+        end
+    end
+end)
+
+-- ===================== RENDER LOOP =====================
+
+RunService.RenderStepped:Connect(function()
+    if not CONFIG.Enabled then return end
+
+    Camera = workspace.CurrentCamera
+
+    for player, esp in pairs(ESPObjects) do
+        if player and player.Parent then
+            esp:Update()
+        else
+            esp:Destroy()
+            ESPObjects[player] = nil
+        end
+    end
+end)
+
+-- ===================== INISIALISASI =====================
+
+ESPManager:Initialize()
+
+-- ===================== CLEANUP =====================
+-- Bersihkan saat script dihentikan
+
+local function Cleanup()
+    for _, esp in pairs(ESPObjects) do
+        esp:Destroy()
+    end
+    ESPObjects = {}
+    print("[ESP] Script dibersihkan.")
+end
+
+-- Jika menggunakan exploit yang support getgenv()
+if getgenv then
+    if getgenv().ESPCleanup then
+        getgenv().ESPCleanup()
+    end
+    getgenv().ESPCleanup = Cleanup
+end
+
+print("============================================")
+print("  ESP Player Script Loaded!")
+print("  Tekan " .. tostring(CONFIG.ToggleKey) .. " untuk Toggle ON/OFF")
+print("============================================")
