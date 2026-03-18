@@ -26,7 +26,7 @@ local C={
     pop=Color3.fromRGB(255,90,40),spc=Color3.fromRGB(200,160,30),
 }
 
-local KEY_URL="https://key-conturer.netlify.app/"
+local KEY_URL="https://key-system-conturerx.netlify.app/"
 
 -- ═══ DAILY KEY SYSTEM ═══
 local CHARSET="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
