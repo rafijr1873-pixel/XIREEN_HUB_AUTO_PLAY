@@ -1,0 +1,43 @@
+-- =============================================
+--           Nonsense X Hub
+-- =============================================
+
+-- Load Hub/GUI terlebih dahulu
+loadstring(game:HttpGet("https://pastefy.app/D6TtwXZA/raw"))()
+
+-- Tunggu GUI selesai dimuat
+task.wait(3)
+
+-- Ganti Title menjadi "Nonsense X Hub"
+pcall(function()
+    local function changeTitle(parent)
+        for _, obj in pairs(parent:GetDescendants()) do
+            pcall(function()
+                if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+                    if obj.Name:lower():find("title") 
+                    or obj.Name:lower():find("header") 
+                    or obj.Name:lower():find("name") then
+                        obj.Text = "Nonsense X Hub"
+                    end
+                end
+            end)
+        end
+    end
+
+    -- Cari di PlayerGui
+    local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    changeTitle(playerGui)
+
+    -- Cari di CoreGui (tempat umum GUI executor)
+    pcall(function()
+        if gethui then
+            changeTitle(gethui())
+        else
+            changeTitle(game:GetService("CoreGui"))
+        end
+    end)
+end)
+
+-- Load Fitur/Features
+task.wait(1)
+loadstring(game:HttpGet("https://raw.githubusercontent.com/mm2script-lua/luamm2/refs/heads/main/testt"))()
