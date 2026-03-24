@@ -1,36 +1,23 @@
 --[[
     ╔══════════════════════════════════════════╗
-    ║          NEXUS HUB v2.0                 ║
+    ║        NEXUS HUB v3.0 - RAYFIELD       ║
     ║   Game: Operation One / Universal       ║
     ║   Support: Mobile & PC                  ║
-    ║   Fixed: GUI + ESP Accuracy             ║
     ╚══════════════════════════════════════════╝
 ]]
 
 -- ============================================
--- SERVICES
+-- CLEANUP SCRIPT LAMA
 -- ============================================
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local StarterGui = game:GetService("StarterGui")
-local CoreGui = game:GetService("CoreGui")
-local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
-local IsMobile = UserInputService.TouchEnabled
-
--- ============================================
--- CLEANUP SCRIPT LAMA (Cegah duplikat)
--- ============================================
-if _G.NexusHubLoaded then
+if _G.NexusLoaded then
     pcall(function()
-        if _G.NexusRenderConn then _G.NexusRenderConn:Disconnect() end
-        if _G.NexusESPCache then
-            for _, d in pairs(_G.NexusESPCache) do
+        if _G.NexusRender then _G.NexusRender:Disconnect() end
+        if _G.NexusCache then
+            for _, d in pairs(_G.NexusCache) do
                 pcall(function()
                     for _, b in pairs(d.Bones or {}) do b:Remove() end
                     for _, b in pairs(d.Box or {}) do b:Remove() end
+                    for _, b in pairs(d.Corners or {}) do b:Remove() end
                     if d.Name then d.Name:Remove() end
                     if d.Dist then d.Dist:Remove() end
                     if d.HPBG then d.HPBG:Remove() end
@@ -38,16 +25,28 @@ if _G.NexusHubLoaded then
                     if d.HPText then d.HPText:Remove() end
                     if d.Tracer then d.Tracer:Remove() end
                     if d.HeadDot then d.HeadDot:Remove() end
+                    if d.Weapon then d.Weapon:Remove() end
                 end)
             end
         end
     end)
-    pcall(function()
-        if _G.NexusGui then _G.NexusGui:Destroy() end
-    end)
-    task.wait(0.3)
+    task.wait(0.5)
 end
-_G.NexusHubLoaded = true
+_G.NexusLoaded = true
+
+-- ============================================
+-- SERVICES
+-- ============================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- ============================================
+-- LOAD RAYFIELD
+-- ============================================
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 -- ============================================
 -- CONFIG
@@ -56,16 +55,21 @@ local Config = {
     Enabled = true,
     SkeletonESP = true,
     BoxESP = true,
+    CornerBoxESP = false,
     NameESP = true,
     HealthESP = true,
     DistanceESP = true,
     Tracers = false,
     HeadDot = true,
+    WeaponESP = true,
     TeamCheck = false,
+    VisibleCheck = false,
     MaxDistance = 2500,
 
     EnemyColor = Color3.fromRGB(255, 60, 60),
     TeamColor = Color3.fromRGB(60, 255, 60),
+    VisibleColor = Color3.fromRGB(0, 255, 0),
+    HiddenColor = Color3.fromRGB(255, 60, 60),
     SkeletonColor = Color3.fromRGB(255, 255, 255),
     BoxColor = Color3.fromRGB(255, 255, 0),
     TracerColor = Color3.fromRGB(0, 200, 255),
@@ -75,9 +79,10 @@ local Config = {
 
     SkeletonThickness = 1.5,
     BoxThickness = 1.5,
-    TracerThickness = 1,
+    TracerThickness = 1.2,
     HeadDotRadius = 3,
     TextSize = 13,
+    TracerOrigin = "Bottom", -- Bottom / Center / Mouse
 }
 
 -- ============================================
@@ -109,22 +114,22 @@ local R6Bones = {
 }
 
 -- ============================================
--- UTILITY FUNCTIONS (Akurasi diperbaiki)
+-- UTILITY
 -- ============================================
 local function W2S(pos)
-    local success, result = pcall(function()
+    local ok, res = pcall(function()
         return Camera:WorldToViewportPoint(pos)
     end)
-    if not success then return Vector2.new(0,0), false, 0 end
-    return Vector2.new(result.X, result.Y), result.Z > 0, result.Z
+    if not ok then return Vector2.new(0, 0), false, 0 end
+    return Vector2.new(res.X, res.Y), res.Z > 0, res.Z
 end
 
 local function GetDist(pos)
     local c = LocalPlayer.Character
     if not c then return math.huge end
-    local root = c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("Torso")
-    if not root then return math.huge end
-    return (root.Position - pos).Magnitude
+    local r = c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("Torso")
+    if not r then return math.huge end
+    return (r.Position - pos).Magnitude
 end
 
 local function IsAlly(plr)
@@ -139,197 +144,142 @@ end
 
 local function LerpColor(c1, c2, a)
     a = math.clamp(a, 0, 1)
-    return Color3.new(
-        c1.R + (c2.R - c1.R) * a,
-        c1.G + (c2.G - c1.G) * a,
-        c1.B + (c2.B - c1.B) * a
-    )
+    return Color3.new(c1.R+(c2.R-c1.R)*a, c1.G+(c2.G-c1.G)*a, c1.B+(c2.B-c1.B)*a)
 end
 
 local function IsR15(char)
     return char:FindFirstChild("UpperTorso") ~= nil
 end
 
+local function GetEquippedTool(char)
+    for _, v in pairs(char:GetChildren()) do
+        if v:IsA("Tool") or v:IsA("BackpackItem") then
+            return v.Name
+        end
+    end
+    return nil
+end
+
 -- ============================================
--- IMPROVED BOUNDING BOX (Fix akurasi)
--- Menghitung dari semua part character
+-- ACCURATE BOUNDING BOX
 -- ============================================
-local function GetAccurateBounds(char)
+local function GetBounds(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
-    local root = char:FindFirstChild("HumanoidRootPart")
+    local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
     if not hum or not root or hum.Health <= 0 then return nil end
 
-    -- Cari posisi tertinggi (kepala) dan terendah (kaki)
     local head = char:FindFirstChild("Head")
     if not head then return nil end
 
-    -- Hitung tinggi karakter dari Humanoid properties
-    local hipHeight = hum.HipHeight or 0
-    local rigType = hum.RigType
-
     local topPos, bottomPos
 
-    if rigType == Enum.HumanoidRigType.R15 then
-        -- R15: lebih akurat
-        local upperTorso = char:FindFirstChild("UpperTorso")
-        local leftFoot = char:FindFirstChild("LeftFoot")
-        local rightFoot = char:FindFirstChild("RightFoot")
-
-        local headTop = head.Position + Vector3.new(0, head.Size.Y / 2 + 0.3, 0)
-        topPos = headTop
-
-        if leftFoot and rightFoot then
-            local footY = math.min(leftFoot.Position.Y - leftFoot.Size.Y/2,
-                                    rightFoot.Position.Y - rightFoot.Size.Y/2)
-            bottomPos = Vector3.new(root.Position.X, footY, root.Position.Z)
+    if hum.RigType == Enum.HumanoidRigType.R15 then
+        local lf = char:FindFirstChild("LeftFoot")
+        local rf = char:FindFirstChild("RightFoot")
+        topPos = head.Position + Vector3.new(0, head.Size.Y / 2 + 0.3, 0)
+        if lf and rf then
+            local fy = math.min(lf.Position.Y - lf.Size.Y/2, rf.Position.Y - rf.Size.Y/2)
+            bottomPos = Vector3.new(root.Position.X, fy, root.Position.Z)
         else
-            bottomPos = root.Position - Vector3.new(0, hipHeight + 0.5, 0)
+            bottomPos = root.Position - Vector3.new(0, 3, 0)
         end
     else
-        -- R6
-        local leftLeg = char:FindFirstChild("Left Leg")
-        local rightLeg = char:FindFirstChild("Right Leg")
-
+        local ll = char:FindFirstChild("Left Leg")
+        local rl = char:FindFirstChild("Right Leg")
         topPos = head.Position + Vector3.new(0, head.Size.Y / 2 + 0.3, 0)
-
-        if leftLeg and rightLeg then
-            local footY = math.min(leftLeg.Position.Y - leftLeg.Size.Y/2,
-                                    rightLeg.Position.Y - rightLeg.Size.Y/2)
-            bottomPos = Vector3.new(root.Position.X, footY, root.Position.Z)
+        if ll and rl then
+            local fy = math.min(ll.Position.Y - ll.Size.Y/2, rl.Position.Y - rl.Size.Y/2)
+            bottomPos = Vector3.new(root.Position.X, fy, root.Position.Z)
         else
             bottomPos = root.Position - Vector3.new(0, 3, 0)
         end
     end
 
-    -- World to Screen
-    local topScreen, topOn = W2S(topPos)
-    local botScreen, botOn = W2S(bottomPos)
-    local rootScreen, rootOn = W2S(root.Position)
+    local topS, topOn = W2S(topPos)
+    local botS, botOn = W2S(bottomPos)
+    local rootS, rootOn = W2S(root.Position)
 
     if not rootOn then return nil end
 
-    local height = math.abs(botScreen.Y - topScreen.Y)
-    if height < 5 then return nil end -- Terlalu kecil / jauh
+    local h = math.abs(botS.Y - topS.Y)
+    if h < 4 then return nil end
 
-    local width = height * 0.55
+    local w = h * 0.55
 
     return {
-        Top = topScreen,
-        Bottom = botScreen,
-        Height = height,
-        Width = width,
-        Center = Vector2.new(
-            rootScreen.X,
-            (topScreen.Y + botScreen.Y) / 2
-        )
+        Top = topS, Bottom = botS,
+        Height = h, Width = w,
+        Center = Vector2.new(rootS.X, (topS.Y + botS.Y) / 2)
     }
 end
 
 -- ============================================
--- IMPROVED SKELETON JOINT POSITIONS
--- Pakai posisi ujung part, bukan tengah
+-- SAFE DRAWING
 -- ============================================
-local function GetJointPos(char, partName)
-    local part = char:FindFirstChild(partName)
-    if not part then return nil end
-    return part.Position
-end
-
--- ============================================
--- DRAWING HELPERS
--- ============================================
-local DrawingSupported = pcall(function() local t = Drawing.new("Line") t:Remove() end)
-
-if not DrawingSupported then
-    warn("[Nexus Hub] Drawing library tidak tersedia di executor ini!")
-end
-
-local function SafeNewDrawing(drawType, props)
-    local success, obj = pcall(function()
-        local d = Drawing.new(drawType)
+local function SafeDraw(t, props)
+    local ok, obj = pcall(function()
+        local d = Drawing.new(t)
         d.Visible = false
         for k, v in pairs(props or {}) do
             pcall(function() d[k] = v end)
         end
         return d
     end)
-    return success and obj or nil
-end
-
-local function NewLine(props)
-    return SafeNewDrawing("Line", {
-        Color = props.Color or Color3.new(1,1,1),
-        Thickness = props.Thickness or 1,
-        Transparency = props.Transparency or 1,
-    })
-end
-
-local function NewText(props)
-    return SafeNewDrawing("Text", {
-        Color = props.Color or Color3.new(1,1,1),
-        Size = props.Size or 14,
-        Center = true,
-        Outline = true,
-        OutlineColor = Color3.new(0,0,0),
-        Font = Drawing.Fonts.UI,
-    })
-end
-
-local function NewCircle(props)
-    return SafeNewDrawing("Circle", {
-        Color = props.Color or Color3.new(1,1,1),
-        Thickness = props.Thickness or 1,
-        Filled = props.Filled or false,
-        NumSides = 20,
-        Transparency = props.Transparency or 1,
-    })
+    return ok and obj or nil
 end
 
 -- ============================================
 -- ESP CACHE
 -- ============================================
 local ESPCache = {}
-_G.NexusESPCache = ESPCache
+_G.NexusCache = ESPCache
 
 local function MakeESP(plr)
-    if plr == LocalPlayer then return end
-    if ESPCache[plr] then return end -- Cegah duplikat
+    if plr == LocalPlayer or ESPCache[plr] then return end
 
-    local data = {
+    local d = {
         Player = plr,
         Bones = {},
         Box = {},
-        Name = NewText({Color = Config.NameColor, Size = Config.TextSize}),
-        Dist = NewText({Color = Color3.fromRGB(200,200,200), Size = Config.TextSize - 2}),
-        HPBG = NewLine({Color = Color3.new(0,0,0), Thickness = 5}),
-        HP = NewLine({Color = Config.HealthHighColor, Thickness = 2.5}),
-        HPText = NewText({Color = Color3.new(1,1,1), Size = Config.TextSize - 3}),
-        Tracer = NewLine({Color = Config.TracerColor, Thickness = Config.TracerThickness}),
-        HeadDot = NewCircle({Color = Config.EnemyColor, Filled = true}),
+        Corners = {},
+        Name = SafeDraw("Text", {Color=Color3.new(1,1,1), Size=Config.TextSize, Center=true, Outline=true, OutlineColor=Color3.new(0,0,0), Font=Drawing.Fonts.UI}),
+        Dist = SafeDraw("Text", {Color=Color3.fromRGB(200,200,200), Size=Config.TextSize-2, Center=true, Outline=true, OutlineColor=Color3.new(0,0,0), Font=Drawing.Fonts.UI}),
+        Weapon = SafeDraw("Text", {Color=Color3.fromRGB(255,200,80), Size=Config.TextSize-2, Center=true, Outline=true, OutlineColor=Color3.new(0,0,0), Font=Drawing.Fonts.UI}),
+        HPBG = SafeDraw("Line", {Color=Color3.new(0,0,0), Thickness=5}),
+        HP = SafeDraw("Line", {Color=Color3.new(0,1,0), Thickness=2.5}),
+        HPText = SafeDraw("Text", {Color=Color3.new(1,1,1), Size=Config.TextSize-3, Center=true, Outline=true, OutlineColor=Color3.new(0,0,0), Font=Drawing.Fonts.UI}),
+        Tracer = SafeDraw("Line", {Color=Config.TracerColor, Thickness=Config.TracerThickness}),
+        HeadDot = SafeDraw("Circle", {Color=Config.EnemyColor, Filled=true, NumSides=20}),
     }
 
     for i = 1, 14 do
-        data.Bones[i] = NewLine({Color = Config.SkeletonColor, Thickness = Config.SkeletonThickness})
+        d.Bones[i] = SafeDraw("Line", {Color=Config.SkeletonColor, Thickness=Config.SkeletonThickness})
     end
     for i = 1, 4 do
-        data.Box[i] = NewLine({Color = Config.BoxColor, Thickness = Config.BoxThickness})
+        d.Box[i] = SafeDraw("Line", {Color=Config.BoxColor, Thickness=Config.BoxThickness})
+    end
+    -- Corner box: 8 lines (4 corners x 2 lines each)
+    for i = 1, 8 do
+        d.Corners[i] = SafeDraw("Line", {Color=Config.BoxColor, Thickness=Config.BoxThickness})
     end
 
-    ESPCache[plr] = data
+    ESPCache[plr] = d
 end
 
 local function HideAll(d)
     if not d then return end
     pcall(function()
-        for _,b in pairs(d.Bones) do if b then b.Visible = false end end
-        for _,b in pairs(d.Box) do if b then b.Visible = false end end
-        if d.Name then d.Name.Visible = false end
-        if d.Dist then d.Dist.Visible = false end
-        if d.HPBG then d.HPBG.Visible = false end
-        if d.HP then d.HP.Visible = false end
-        if d.HPText then d.HPText.Visible = false end
-        if d.Tracer then d.Tracer.Visible = false end
-        if d.HeadDot then d.HeadDot.Visible = false end
+        for _,b in pairs(d.Bones) do if b then b.Visible=false end end
+        for _,b in pairs(d.Box) do if b then b.Visible=false end end
+        for _,b in pairs(d.Corners) do if b then b.Visible=false end end
+        if d.Name then d.Name.Visible=false end
+        if d.Dist then d.Dist.Visible=false end
+        if d.Weapon then d.Weapon.Visible=false end
+        if d.HPBG then d.HPBG.Visible=false end
+        if d.HP then d.HP.Visible=false end
+        if d.HPText then d.HPText.Visible=false end
+        if d.Tracer then d.Tracer.Visible=false end
+        if d.HeadDot then d.HeadDot.Visible=false end
     end)
 end
 
@@ -339,8 +289,10 @@ local function RemoveESP(plr)
     pcall(function()
         for _,b in pairs(d.Bones) do if b then b:Remove() end end
         for _,b in pairs(d.Box) do if b then b:Remove() end end
+        for _,b in pairs(d.Corners) do if b then b:Remove() end end
         if d.Name then d.Name:Remove() end
         if d.Dist then d.Dist:Remove() end
+        if d.Weapon then d.Weapon:Remove() end
         if d.HPBG then d.HPBG:Remove() end
         if d.HP then d.HP:Remove() end
         if d.HPText then d.HPText:Remove() end
@@ -351,7 +303,7 @@ local function RemoveESP(plr)
 end
 
 -- ============================================
--- UPDATE ESP (Improved accuracy)
+-- UPDATE ESP
 -- ============================================
 local function UpdateESP(plr, d)
     if not d then return end
@@ -362,66 +314,54 @@ local function UpdateESP(plr, d)
 
     local hum = char:FindFirstChildOfClass("Humanoid")
     local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
-    if not hum or not root then HideAll(d) return end
-    if hum.Health <= 0 then HideAll(d) return end
+    if not hum or not root or hum.Health <= 0 then HideAll(d) return end
 
     local dist = GetDist(root.Position)
     if dist > Config.MaxDistance then HideAll(d) return end
     if Config.TeamCheck and IsAlly(plr) then HideAll(d) return end
 
-    local _, rootOnScreen, rootDepth = W2S(root.Position)
-    if not rootOnScreen or rootDepth <= 0 then HideAll(d) return end
+    local _, onScr, depth = W2S(root.Position)
+    if not onScr or depth <= 0 then HideAll(d) return end
 
-    local bounds = GetAccurateBounds(char)
+    local bounds = GetBounds(char)
     if not bounds then HideAll(d) return end
 
     local col = GetColor(plr)
 
-    -- =====================
-    -- SKELETON ESP (Improved)
-    -- =====================
+    -- ====== SKELETON ======
     if Config.SkeletonESP then
         local boneList = IsR15(char) and R15Bones or R6Bones
         for i, bp in ipairs(boneList) do
             if d.Bones[i] then
-                local pos1 = GetJointPos(char, bp[1])
-                local pos2 = GetJointPos(char, bp[2])
-                if pos1 and pos2 then
-                    local s1, o1 = W2S(pos1)
-                    local s2, o2 = W2S(pos2)
+                local p1 = char:FindFirstChild(bp[1])
+                local p2 = char:FindFirstChild(bp[2])
+                if p1 and p2 then
+                    local s1, o1 = W2S(p1.Position)
+                    local s2, o2 = W2S(p2.Position)
                     if o1 and o2 then
                         d.Bones[i].From = s1
                         d.Bones[i].To = s2
                         d.Bones[i].Color = Config.SkeletonColor
                         d.Bones[i].Thickness = Config.SkeletonThickness
                         d.Bones[i].Visible = true
-                    else
-                        d.Bones[i].Visible = false
-                    end
-                else
-                    d.Bones[i].Visible = false
-                end
+                    else d.Bones[i].Visible = false end
+                else d.Bones[i].Visible = false end
             end
         end
-        local cnt = #boneList
-        for i = cnt + 1, #d.Bones do
+        for i = #(IsR15(char) and R15Bones or R6Bones) + 1, #d.Bones do
             if d.Bones[i] then d.Bones[i].Visible = false end
         end
     else
         for _, b in pairs(d.Bones) do if b then b.Visible = false end end
     end
 
-    -- =====================
-    -- BOX ESP
-    -- =====================
+    -- ====== FULL BOX ======
     if Config.BoxESP then
-        local x = bounds.Center.X
-        local hw = bounds.Width / 2
-        local tl = Vector2.new(x - hw, bounds.Top.Y)
-        local tr = Vector2.new(x + hw, bounds.Top.Y)
-        local bl = Vector2.new(x - hw, bounds.Bottom.Y)
-        local br = Vector2.new(x + hw, bounds.Bottom.Y)
-
+        local x, hw = bounds.Center.X, bounds.Width / 2
+        local tl = Vector2.new(x-hw, bounds.Top.Y)
+        local tr = Vector2.new(x+hw, bounds.Top.Y)
+        local bl = Vector2.new(x-hw, bounds.Bottom.Y)
+        local br = Vector2.new(x+hw, bounds.Bottom.Y)
         if d.Box[1] then d.Box[1].From=tl d.Box[1].To=tr d.Box[1].Color=col d.Box[1].Thickness=Config.BoxThickness d.Box[1].Visible=true end
         if d.Box[2] then d.Box[2].From=bl d.Box[2].To=br d.Box[2].Color=col d.Box[2].Thickness=Config.BoxThickness d.Box[2].Visible=true end
         if d.Box[3] then d.Box[3].From=tl d.Box[3].To=bl d.Box[3].Color=col d.Box[3].Thickness=Config.BoxThickness d.Box[3].Visible=true end
@@ -430,47 +370,76 @@ local function UpdateESP(plr, d)
         for _, b in pairs(d.Box) do if b then b.Visible = false end end
     end
 
-    -- =====================
-    -- NAME ESP
-    -- =====================
+    -- ====== CORNER BOX ======
+    if Config.CornerBoxESP then
+        local x, hw = bounds.Center.X, bounds.Width / 2
+        local cLen = bounds.Height * 0.2
+
+        local tl = Vector2.new(x-hw, bounds.Top.Y)
+        local tr = Vector2.new(x+hw, bounds.Top.Y)
+        local bl = Vector2.new(x-hw, bounds.Bottom.Y)
+        local br = Vector2.new(x+hw, bounds.Bottom.Y)
+
+        -- Top-left
+        if d.Corners[1] then d.Corners[1].From=tl d.Corners[1].To=Vector2.new(tl.X+cLen,tl.Y) d.Corners[1].Color=col d.Corners[1].Thickness=Config.BoxThickness d.Corners[1].Visible=true end
+        if d.Corners[2] then d.Corners[2].From=tl d.Corners[2].To=Vector2.new(tl.X,tl.Y+cLen) d.Corners[2].Color=col d.Corners[2].Thickness=Config.BoxThickness d.Corners[2].Visible=true end
+        -- Top-right
+        if d.Corners[3] then d.Corners[3].From=tr d.Corners[3].To=Vector2.new(tr.X-cLen,tr.Y) d.Corners[3].Color=col d.Corners[3].Thickness=Config.BoxThickness d.Corners[3].Visible=true end
+        if d.Corners[4] then d.Corners[4].From=tr d.Corners[4].To=Vector2.new(tr.X,tr.Y+cLen) d.Corners[4].Color=col d.Corners[4].Thickness=Config.BoxThickness d.Corners[4].Visible=true end
+        -- Bottom-left
+        if d.Corners[5] then d.Corners[5].From=bl d.Corners[5].To=Vector2.new(bl.X+cLen,bl.Y) d.Corners[5].Color=col d.Corners[5].Thickness=Config.BoxThickness d.Corners[5].Visible=true end
+        if d.Corners[6] then d.Corners[6].From=bl d.Corners[6].To=Vector2.new(bl.X,bl.Y-cLen) d.Corners[6].Color=col d.Corners[6].Thickness=Config.BoxThickness d.Corners[6].Visible=true end
+        -- Bottom-right
+        if d.Corners[7] then d.Corners[7].From=br d.Corners[7].To=Vector2.new(br.X-cLen,br.Y) d.Corners[7].Color=col d.Corners[7].Thickness=Config.BoxThickness d.Corners[7].Visible=true end
+        if d.Corners[8] then d.Corners[8].From=br d.Corners[8].To=Vector2.new(br.X,br.Y-cLen) d.Corners[8].Color=col d.Corners[8].Thickness=Config.BoxThickness d.Corners[8].Visible=true end
+    else
+        for _, b in pairs(d.Corners) do if b then b.Visible = false end end
+    end
+
+    -- ====== NAME ======
     if Config.NameESP and d.Name then
         d.Name.Text = plr.DisplayName
         d.Name.Position = Vector2.new(bounds.Center.X, bounds.Top.Y - 16)
         d.Name.Color = col
         d.Name.Size = Config.TextSize
         d.Name.Visible = true
-    elseif d.Name then
-        d.Name.Visible = false
-    end
+    elseif d.Name then d.Name.Visible = false end
 
-    -- =====================
-    -- DISTANCE ESP
-    -- =====================
+    -- ====== DISTANCE ======
     if Config.DistanceESP and d.Dist then
         d.Dist.Text = string.format("[%dm]", math.floor(dist))
         d.Dist.Position = Vector2.new(bounds.Center.X, bounds.Bottom.Y + 3)
         d.Dist.Visible = true
-    elseif d.Dist then
-        d.Dist.Visible = false
-    end
+    elseif d.Dist then d.Dist.Visible = false end
 
-    -- =====================
-    -- HEALTH BAR
-    -- =====================
+    -- ====== WEAPON ======
+    if Config.WeaponESP and d.Weapon then
+        local tool = GetEquippedTool(char)
+        if tool then
+            local yOff = Config.DistanceESP and 15 or 3
+            d.Weapon.Text = "🔫 " .. tool
+            d.Weapon.Position = Vector2.new(bounds.Center.X, bounds.Bottom.Y + yOff)
+            d.Weapon.Color = Color3.fromRGB(255, 200, 80)
+            d.Weapon.Visible = true
+        else
+            d.Weapon.Visible = false
+        end
+    elseif d.Weapon then d.Weapon.Visible = false end
+
+    -- ====== HEALTH BAR ======
     if Config.HealthESP then
         local pct = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
         local hcol = LerpColor(Config.HealthLowColor, Config.HealthHighColor, pct)
-        local bx = bounds.Center.X - bounds.Width / 2 - 6
+        local bx = bounds.Center.X - bounds.Width/2 - 6
 
         if d.HPBG then
             d.HPBG.From = Vector2.new(bx, bounds.Top.Y)
             d.HPBG.To = Vector2.new(bx, bounds.Bottom.Y)
             d.HPBG.Thickness = 5
-            d.HPBG.Color = Color3.new(0, 0, 0)
+            d.HPBG.Color = Color3.new(0,0,0)
             d.HPBG.Transparency = 0.6
             d.HPBG.Visible = true
         end
-
         if d.HP then
             local ht = bounds.Bottom.Y - (bounds.Height * pct)
             d.HP.From = Vector2.new(bx, ht)
@@ -479,7 +448,6 @@ local function UpdateESP(plr, d)
             d.HP.Thickness = 2.5
             d.HP.Visible = true
         end
-
         if d.HPText then
             if pct < 1 then
                 local ht = bounds.Bottom.Y - (bounds.Height * pct)
@@ -487,677 +455,395 @@ local function UpdateESP(plr, d)
                 d.HPText.Position = Vector2.new(bx, ht - 12)
                 d.HPText.Color = hcol
                 d.HPText.Visible = true
-            else
-                d.HPText.Visible = false
-            end
+            else d.HPText.Visible = false end
         end
     else
-        if d.HPBG then d.HPBG.Visible = false end
-        if d.HP then d.HP.Visible = false end
-        if d.HPText then d.HPText.Visible = false end
+        if d.HPBG then d.HPBG.Visible=false end
+        if d.HP then d.HP.Visible=false end
+        if d.HPText then d.HPText.Visible=false end
     end
 
-    -- =====================
-    -- TRACERS
-    -- =====================
+    -- ====== TRACERS ======
     if Config.Tracers and d.Tracer then
         local vs = Camera.ViewportSize
-        d.Tracer.From = Vector2.new(vs.X / 2, vs.Y)
+        local fromPos
+
+        if Config.TracerOrigin == "Center" then
+            fromPos = Vector2.new(vs.X/2, vs.Y/2)
+        elseif Config.TracerOrigin == "Mouse" then
+            local mp = UserInputService:GetMouseLocation()
+            fromPos = Vector2.new(mp.X, mp.Y)
+        else
+            fromPos = Vector2.new(vs.X/2, vs.Y)
+        end
+
+        d.Tracer.From = fromPos
         d.Tracer.To = Vector2.new(bounds.Center.X, bounds.Bottom.Y)
         d.Tracer.Color = Config.TracerColor
         d.Tracer.Thickness = Config.TracerThickness
         d.Tracer.Visible = true
-    elseif d.Tracer then
-        d.Tracer.Visible = false
-    end
+    elseif d.Tracer then d.Tracer.Visible = false end
 
-    -- =====================
-    -- HEAD DOT
-    -- =====================
+    -- ====== HEAD DOT ======
     if Config.HeadDot and d.HeadDot then
         local head = char:FindFirstChild("Head")
         if head then
             local hp, ho = W2S(head.Position)
             if ho then
                 d.HeadDot.Position = hp
-                d.HeadDot.Radius = math.clamp(Config.HeadDotRadius * (350 / math.max(dist, 1)), 1, 8)
+                d.HeadDot.Radius = math.clamp(Config.HeadDotRadius * (350/math.max(dist,1)), 1, 8)
                 d.HeadDot.Color = col
                 d.HeadDot.Filled = true
                 d.HeadDot.Visible = true
-            else
-                d.HeadDot.Visible = false
-            end
-        else
-            d.HeadDot.Visible = false
-        end
-    elseif d.HeadDot then
-        d.HeadDot.Visible = false
-    end
+            else d.HeadDot.Visible = false end
+        else d.HeadDot.Visible = false end
+    elseif d.HeadDot then d.HeadDot.Visible = false end
 end
 
 -- ============================================
 -- PLAYER EVENTS
 -- ============================================
-for _, p in ipairs(Players:GetPlayers()) do
-    task.spawn(function() MakeESP(p) end)
-end
-Players.PlayerAdded:Connect(function(p) task.spawn(function() MakeESP(p) end) end)
-Players.PlayerRemoving:Connect(function(p) task.spawn(function() RemoveESP(p) end) end)
+for _, p in ipairs(Players:GetPlayers()) do task.spawn(MakeESP, p) end
+Players.PlayerAdded:Connect(function(p) task.spawn(MakeESP, p) end)
+Players.PlayerRemoving:Connect(function(p) task.spawn(RemoveESP, p) end)
 
--- Render Loop
+-- ============================================
+-- RENDER LOOP
+-- ============================================
 local RenderConn = RunService.RenderStepped:Connect(function()
-    Camera = workspace.CurrentCamera -- Refresh camera reference
+    Camera = workspace.CurrentCamera
     for plr, data in pairs(ESPCache) do
-        local ok, err = pcall(function()
+        local ok = pcall(function()
             if plr and plr.Parent then
                 UpdateESP(plr, data)
             else
                 HideAll(data)
             end
         end)
-        if not ok then
-            HideAll(data)
-        end
+        if not ok then HideAll(data) end
     end
 end)
-_G.NexusRenderConn = RenderConn
-
--- ========================================================
--- ========================================================
---             NEXUS HUB GUI (FIXED)
--- ========================================================
--- ========================================================
+_G.NexusRender = RenderConn
 
 -- ============================================
--- GUI PARENT (Multiple fallback untuk fix)
 -- ============================================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "NexusHub"
-ScreenGui.DisplayOrder = 999999
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = false
+--         RAYFIELD GUI
+-- ============================================
+-- ============================================
 
--- FALLBACK PARENT: Coba semua metode
-local guiParented = false
+local Window = Rayfield:CreateWindow({
+    Name = "⚡ NEXUS HUB v3.0",
+    LoadingTitle = "Nexus Hub",
+    LoadingSubtitle = "by Nexus Team",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "NexusHub",
+        FileName = "NexusConfig"
+    },
+    Discord = {
+        Enabled = false,
+    },
+    KeySystem = false,
+})
 
--- Metode 1: gethui (Synapse/Fluxus)
-if not guiParented then
-    pcall(function()
-        if gethui then
-            ScreenGui.Parent = gethui()
-            guiParented = true
+-- ============================================
+-- TAB 1: ESP VISUALS
+-- ============================================
+local ESPTab = Window:CreateTab("👁 ESP", 4483362458)
+
+-- Section: Main
+local MainSection = ESPTab:CreateSection("Main Control")
+
+ESPTab:CreateToggle({
+    Name = "⚡ Enable ESP",
+    CurrentValue = Config.Enabled,
+    Flag = "ESP_Master",
+    Callback = function(v)
+        Config.Enabled = v
+        if not v then
+            for _, d in pairs(ESPCache) do HideAll(d) end
         end
-    end)
-end
+    end,
+})
 
--- Metode 2: syn.protect_gui (Synapse)
-if not guiParented then
-    pcall(function()
-        if syn and syn.protect_gui then
-            syn.protect_gui(ScreenGui)
-            ScreenGui.Parent = CoreGui
-            guiParented = true
-        end
-    end)
-end
+-- Section: Visual ESP
+local VisualSection = ESPTab:CreateSection("Visual ESP")
 
--- Metode 3: CoreGui langsung
-if not guiParented then
-    pcall(function()
-        ScreenGui.Parent = CoreGui
-        guiParented = true
-    end)
-end
+ESPTab:CreateToggle({
+    Name = "🦴 Skeleton ESP",
+    CurrentValue = Config.SkeletonESP,
+    Flag = "ESP_Skeleton",
+    Callback = function(v) Config.SkeletonESP = v end,
+})
 
--- Metode 4: PlayerGui (fallback terakhir)
-if not guiParented then
-    pcall(function()
-        ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui", 5)
-        guiParented = true
-    end)
-end
+ESPTab:CreateToggle({
+    Name = "📦 Full Box ESP",
+    CurrentValue = Config.BoxESP,
+    Flag = "ESP_Box",
+    Callback = function(v) Config.BoxESP = v end,
+})
 
-if not guiParented then
-    warn("[Nexus Hub] GAGAL memasang GUI! Executor tidak support.")
-    return
-end
+ESPTab:CreateToggle({
+    Name = "📐 Corner Box ESP",
+    CurrentValue = Config.CornerBoxESP,
+    Flag = "ESP_CornerBox",
+    Callback = function(v) Config.CornerBoxESP = v end,
+})
 
-_G.NexusGui = ScreenGui
+ESPTab:CreateToggle({
+    Name = "📛 Name ESP",
+    CurrentValue = Config.NameESP,
+    Flag = "ESP_Name",
+    Callback = function(v) Config.NameESP = v end,
+})
 
--- ============================================
--- THEME
--- ============================================
-local Theme = {
-    BG = Color3.fromRGB(15, 15, 25),
-    TopBar = Color3.fromRGB(25, 25, 45),
-    Button = Color3.fromRGB(30, 30, 50),
-    ButtonHover = Color3.fromRGB(40, 40, 65),
-    ToggleON = Color3.fromRGB(0, 185, 95),
-    ToggleOFF = Color3.fromRGB(180, 45, 45),
-    Text = Color3.fromRGB(235, 235, 245),
-    SubText = Color3.fromRGB(140, 140, 165),
-    Accent = Color3.fromRGB(90, 110, 255),
-    AccentGlow = Color3.fromRGB(120, 140, 255),
-    Danger = Color3.fromRGB(200, 40, 40),
-    Corner = UDim.new(0, 8),
-    CornerSmall = UDim.new(0, 6),
-}
+ESPTab:CreateToggle({
+    Name = "❤️ Health Bar",
+    CurrentValue = Config.HealthESP,
+    Flag = "ESP_Health",
+    Callback = function(v) Config.HealthESP = v end,
+})
 
-local MenuWidth = IsMobile and 290 or 260
-local MenuHeight = IsMobile and 460 or 420
-local BtnSize = IsMobile and 52 or 44
-local TitleBarH = IsMobile and 50 or 42
-local FontSizeTitle = IsMobile and 18 or 16
-local FontSizeBtn = IsMobile and 15 or 13
-local FontSizeDesc = IsMobile and 11 or 10
-local FloatBtnSize = IsMobile and 56 or 46
+ESPTab:CreateToggle({
+    Name = "📏 Distance ESP",
+    CurrentValue = Config.DistanceESP,
+    Flag = "ESP_Distance",
+    Callback = function(v) Config.DistanceESP = v end,
+})
 
--- ============================================
--- FLOATING TOGGLE BUTTON
--- ============================================
-local FloatBtn = Instance.new("TextButton")
-FloatBtn.Name = "NexusFloatBtn"
-FloatBtn.Size = UDim2.new(0, FloatBtnSize, 0, FloatBtnSize)
-FloatBtn.Position = UDim2.new(0, 15, 0, IsMobile and 120 or 100)
-FloatBtn.BackgroundColor3 = Theme.Accent
-FloatBtn.Text = "N"
-FloatBtn.TextSize = IsMobile and 24 or 20
-FloatBtn.Font = Enum.Font.GothamBlack
-FloatBtn.TextColor3 = Color3.new(1, 1, 1)
-FloatBtn.BorderSizePixel = 0
-FloatBtn.ZIndex = 200
-FloatBtn.AutoButtonColor = false
-FloatBtn.Parent = ScreenGui
+ESPTab:CreateToggle({
+    Name = "🔫 Weapon/Tool ESP",
+    CurrentValue = Config.WeaponESP,
+    Flag = "ESP_Weapon",
+    Callback = function(v) Config.WeaponESP = v end,
+})
 
-Instance.new("UICorner", FloatBtn).CornerRadius = UDim.new(1, 0)
+ESPTab:CreateToggle({
+    Name = "📍 Tracers",
+    CurrentValue = Config.Tracers,
+    Flag = "ESP_Tracers",
+    Callback = function(v) Config.Tracers = v end,
+})
 
-local floatStroke = Instance.new("UIStroke")
-floatStroke.Color = Theme.AccentGlow
-floatStroke.Thickness = 2
-floatStroke.Transparency = 0.3
-floatStroke.Parent = FloatBtn
+ESPTab:CreateToggle({
+    Name = "🔴 Head Dot",
+    CurrentValue = Config.HeadDot,
+    Flag = "ESP_HeadDot",
+    Callback = function(v) Config.HeadDot = v end,
+})
 
 -- ============================================
--- FLOATING BUTTON DRAG (Mobile + PC)
+-- TAB 2: SETTINGS
 -- ============================================
-do
-    local dragging = false
-    local dragStart = Vector2.new()
-    local startPos = UDim2.new()
-    local hasMoved = false
+local SettingsTab = Window:CreateTab("⚙️ Settings", 4483362458)
 
-    FloatBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            hasMoved = false
-            dragStart = Vector2.new(input.Position.X, input.Position.Y)
-            startPos = FloatBtn.Position
-        end
-    end)
+local FilterSection = SettingsTab:CreateSection("Filters")
 
-    FloatBtn.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
+SettingsTab:CreateToggle({
+    Name = "🤝 Team Check",
+    CurrentValue = Config.TeamCheck,
+    Flag = "SET_TeamCheck",
+    Callback = function(v) Config.TeamCheck = v end,
+})
 
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = Vector2.new(input.Position.X, input.Position.Y) - dragStart
-            if delta.Magnitude > 8 then
-                hasMoved = true
-                FloatBtn.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + delta.X,
-                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                )
-            end
-        end
-    end)
+-- Distance slider
+local DistSection = SettingsTab:CreateSection("Distance")
 
-    -- Hanya toggle menu jika tidak drag
-    FloatBtn.MouseButton1Click:Connect(function()
-        if not hasMoved then
-            -- Toggle menu (defined below)
-            if _G.NexusToggleMenu then _G.NexusToggleMenu() end
-        end
-        hasMoved = false
-    end)
-end
+SettingsTab:CreateSlider({
+    Name = "📡 Max Distance (studs)",
+    Range = {100, 5000},
+    Increment = 100,
+    Suffix = " studs",
+    CurrentValue = Config.MaxDistance,
+    Flag = "SET_MaxDist",
+    Callback = function(v) Config.MaxDistance = v end,
+})
 
--- ============================================
--- MAIN FRAME
--- ============================================
-local MenuOpen = false
+-- Thickness settings
+local ThickSection = SettingsTab:CreateSection("Thickness")
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "NexusMainFrame"
-MainFrame.Size = UDim2.new(0, MenuWidth, 0, MenuHeight)
-MainFrame.Position = UDim2.new(0.5, -MenuWidth/2, 0.5, -MenuHeight/2)
-MainFrame.BackgroundColor3 = Theme.BG
-MainFrame.BorderSizePixel = 0
-MainFrame.Visible = false
-MainFrame.BackgroundTransparency = 0
-MainFrame.ZIndex = 100
-MainFrame.ClipsDescendants = true
-MainFrame.Parent = ScreenGui
+SettingsTab:CreateSlider({
+    Name = "🦴 Skeleton Thickness",
+    Range = {0.5, 4},
+    Increment = 0.5,
+    Suffix = "px",
+    CurrentValue = Config.SkeletonThickness,
+    Flag = "SET_SkelThick",
+    Callback = function(v) Config.SkeletonThickness = v end,
+})
 
-Instance.new("UICorner", MainFrame).CornerRadius = Theme.Corner
+SettingsTab:CreateSlider({
+    Name = "📦 Box Thickness",
+    Range = {0.5, 4},
+    Increment = 0.5,
+    Suffix = "px",
+    CurrentValue = Config.BoxThickness,
+    Flag = "SET_BoxThick",
+    Callback = function(v) Config.BoxThickness = v end,
+})
 
-local mfStroke = Instance.new("UIStroke")
-mfStroke.Color = Theme.Accent
-mfStroke.Thickness = 1.5
-mfStroke.Transparency = 0.4
-mfStroke.Parent = MainFrame
+SettingsTab:CreateSlider({
+    Name = "📍 Tracer Thickness",
+    Range = {0.5, 4},
+    Increment = 0.5,
+    Suffix = "px",
+    CurrentValue = Config.TracerThickness,
+    Flag = "SET_TracerThick",
+    Callback = function(v) Config.TracerThickness = v end,
+})
 
--- ============================================
--- TITLE BAR
--- ============================================
-local TitleBar = Instance.new("Frame")
-TitleBar.Name = "TitleBar"
-TitleBar.Size = UDim2.new(1, 0, 0, TitleBarH)
-TitleBar.BackgroundColor3 = Theme.TopBar
-TitleBar.BorderSizePixel = 0
-TitleBar.ZIndex = 101
-TitleBar.Parent = MainFrame
+SettingsTab:CreateSlider({
+    Name = "🔴 Head Dot Size",
+    Range = {1, 8},
+    Increment = 1,
+    Suffix = "px",
+    CurrentValue = Config.HeadDotRadius,
+    Flag = "SET_HeadDotSize",
+    Callback = function(v) Config.HeadDotRadius = v end,
+})
 
-Instance.new("UICorner", TitleBar).CornerRadius = Theme.Corner
+SettingsTab:CreateSlider({
+    Name = "📝 Text Size",
+    Range = {10, 20},
+    Increment = 1,
+    Suffix = "pt",
+    CurrentValue = Config.TextSize,
+    Flag = "SET_TextSize",
+    Callback = function(v) Config.TextSize = v end,
+})
 
--- Fix bottom corners of title bar
-local tbFix = Instance.new("Frame")
-tbFix.Size = UDim2.new(1, 0, 0, 12)
-tbFix.Position = UDim2.new(0, 0, 1, -12)
-tbFix.BackgroundColor3 = Theme.TopBar
-tbFix.BorderSizePixel = 0
-tbFix.ZIndex = 101
-tbFix.Parent = TitleBar
+-- Tracer origin
+local TracerSection = SettingsTab:CreateSection("Tracer Origin")
 
--- Accent line under title
-local accentLine = Instance.new("Frame")
-accentLine.Size = UDim2.new(1, 0, 0, 2)
-accentLine.Position = UDim2.new(0, 0, 1, 0)
-accentLine.BackgroundColor3 = Theme.Accent
-accentLine.BorderSizePixel = 0
-accentLine.ZIndex = 102
-accentLine.Parent = TitleBar
-
--- Title text
-local TitleText = Instance.new("TextLabel")
-TitleText.Size = UDim2.new(1, -60, 1, 0)
-TitleText.Position = UDim2.new(0, 14, 0, 0)
-TitleText.BackgroundTransparency = 1
-TitleText.Text = "⚡ NEXUS HUB"
-TitleText.TextColor3 = Theme.Text
-TitleText.TextSize = FontSizeTitle
-TitleText.Font = Enum.Font.GothamBlack
-TitleText.TextXAlignment = Enum.TextXAlignment.Left
-TitleText.ZIndex = 102
-TitleText.Parent = TitleBar
-
--- Version label
-local VerLabel = Instance.new("TextLabel")
-VerLabel.Size = UDim2.new(0, 40, 0, 16)
-VerLabel.Position = UDim2.new(0, 14, 1, -20)
-VerLabel.BackgroundTransparency = 1
-VerLabel.Text = "v2.0"
-VerLabel.TextColor3 = Theme.SubText
-VerLabel.TextSize = 10
-VerLabel.Font = Enum.Font.Gotham
-VerLabel.TextXAlignment = Enum.TextXAlignment.Left
-VerLabel.ZIndex = 102
-VerLabel.Parent = TitleBar
-
--- Close button
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, IsMobile and 38 or 32, 0, IsMobile and 38 or 32)
-CloseBtn.Position = UDim2.new(1, -(IsMobile and 44 or 38), 0.5, -(IsMobile and 19 or 16))
-CloseBtn.BackgroundColor3 = Theme.Danger
-CloseBtn.Text = "✕"
-CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseBtn.TextSize = IsMobile and 16 or 14
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.BorderSizePixel = 0
-CloseBtn.ZIndex = 103
-CloseBtn.AutoButtonColor = true
-CloseBtn.Parent = TitleBar
-
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+SettingsTab:CreateDropdown({
+    Name = "📍 Tracer Start Point",
+    Options = {"Bottom", "Center", "Mouse"},
+    CurrentOption = {Config.TracerOrigin},
+    MultipleOptions = false,
+    Flag = "SET_TracerOrigin",
+    Callback = function(v)
+        Config.TracerOrigin = v[1] or v
+    end,
+})
 
 -- ============================================
--- TITLE BAR DRAG
+-- TAB 3: COLORS
 -- ============================================
-do
-    local dragging = false
-    local dragStart = Vector2.new()
-    local startPos = UDim2.new()
+local ColorTab = Window:CreateTab("🎨 Colors", 4483362458)
 
-    TitleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = Vector2.new(input.Position.X, input.Position.Y)
-            startPos = MainFrame.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
+local ColorSection = ColorTab:CreateSection("ESP Colors")
 
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = Vector2.new(input.Position.X, input.Position.Y) - dragStart
-            MainFrame.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-end
+ColorTab:CreateColorPicker({
+    Name = "🔴 Enemy Color",
+    Color = Config.EnemyColor,
+    Flag = "COL_Enemy",
+    Callback = function(v) Config.EnemyColor = v end,
+})
 
--- ============================================
--- SCROLL FRAME
--- ============================================
-local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Name = "Toggles"
-ScrollFrame.Size = UDim2.new(1, -16, 1, -(TitleBarH + 12))
-ScrollFrame.Position = UDim2.new(0, 8, 0, TitleBarH + 6)
-ScrollFrame.BackgroundTransparency = 1
-ScrollFrame.BorderSizePixel = 0
-ScrollFrame.ScrollBarThickness = 3
-ScrollFrame.ScrollBarImageColor3 = Theme.Accent
-ScrollFrame.ScrollBarImageTransparency = 0.3
-ScrollFrame.ZIndex = 101
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-ScrollFrame.ElasticBehavior = Enum.ElasticBehavior.Always
-ScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-ScrollFrame.Parent = MainFrame
+ColorTab:CreateColorPicker({
+    Name = "🟢 Team Color",
+    Color = Config.TeamColor,
+    Flag = "COL_Team",
+    Callback = function(v) Config.TeamColor = v end,
+})
 
-local ListLayout = Instance.new("UIListLayout")
-ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ListLayout.Padding = UDim.new(0, 5)
-ListLayout.Parent = ScrollFrame
+ColorTab:CreateColorPicker({
+    Name = "🦴 Skeleton Color",
+    Color = Config.SkeletonColor,
+    Flag = "COL_Skeleton",
+    Callback = function(v) Config.SkeletonColor = v end,
+})
 
-local ListPad = Instance.new("UIPadding")
-ListPad.PadTop = UDim.new(0, 3)
-ListPad.PadBottom = UDim.new(0, 8)
-ListPad.PadLeft = UDim.new(0, 2)
-ListPad.PadRight = UDim.new(0, 2)
-ListPad.Parent = ScrollFrame
+ColorTab:CreateColorPicker({
+    Name = "📦 Box Color",
+    Color = Config.BoxColor,
+    Flag = "COL_Box",
+    Callback = function(v) Config.BoxColor = v end,
+})
 
-ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 16)
-end)
+ColorTab:CreateColorPicker({
+    Name = "📍 Tracer Color",
+    Color = Config.TracerColor,
+    Flag = "COL_Tracer",
+    Callback = function(v) Config.TracerColor = v end,
+})
+
+local HealthColorSection = ColorTab:CreateSection("Health Bar Colors")
+
+ColorTab:CreateColorPicker({
+    Name = "💚 Health High",
+    Color = Config.HealthHighColor,
+    Flag = "COL_HealthHigh",
+    Callback = function(v) Config.HealthHighColor = v end,
+})
+
+ColorTab:CreateColorPicker({
+    Name = "💔 Health Low",
+    Color = Config.HealthLowColor,
+    Flag = "COL_HealthLow",
+    Callback = function(v) Config.HealthLowColor = v end,
+})
 
 -- ============================================
--- TOGGLE CREATOR
+-- TAB 4: INFO & DESTROY
 -- ============================================
-local ToggleOrder = 0
+local InfoTab = Window:CreateTab("ℹ️ Info", 4483362458)
 
-local function CreateSeparator(text)
-    ToggleOrder = ToggleOrder + 1
-    local sep = Instance.new("Frame")
-    sep.Size = UDim2.new(1, 0, 0, 20)
-    sep.BackgroundTransparency = 1
-    sep.LayoutOrder = ToggleOrder
-    sep.ZIndex = 102
-    sep.Parent = ScrollFrame
+local InfoSection = InfoTab:CreateSection("Nexus Hub v3.0")
 
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "── " .. string.upper(text) .. " ──"
-    label.TextColor3 = Theme.Accent
-    label.TextSize = IsMobile and 11 or 10
-    label.Font = Enum.Font.GothamBold
-    label.ZIndex = 103
-    label.Parent = sep
-end
+InfoTab:CreateParagraph({
+    Title = "⚡ Nexus Hub",
+    Content = "ESP Script for Operation One & Universal Games\n\nFeatures:\n• Skeleton ESP (R6 & R15)\n• Box ESP + Corner Box\n• Name, Health, Distance\n• Weapon/Tool ESP\n• Tracers (3 modes)\n• Head Dot\n• Full Color Customization\n• Config Save/Load"
+})
 
-local function CreateToggle(name, icon, desc, default, callback)
-    ToggleOrder = ToggleOrder + 1
-    local state = default
+InfoTab:CreateParagraph({
+    Title = "📱 Controls",
+    Content = "• Mobile: Tap tombol di kiri atas\n• PC: Klik tombol atau keybind Rayfield\n• Semua setting otomatis tersimpan"
+})
 
-    local holder = Instance.new("Frame")
-    holder.Name = name
-    holder.Size = UDim2.new(1, 0, 0, BtnSize)
-    holder.BackgroundColor3 = Theme.Button
-    holder.BorderSizePixel = 0
-    holder.LayoutOrder = ToggleOrder
-    holder.ZIndex = 102
-    holder.Parent = ScrollFrame
+local PlayerSection = InfoTab:CreateSection("Player Info")
 
-    Instance.new("UICorner", holder).CornerRadius = Theme.CornerSmall
+InfoTab:CreateLabel("Player: " .. LocalPlayer.DisplayName)
+InfoTab:CreateLabel("Game: " .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name)
+InfoTab:CreateLabel("Players: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers)
 
-    -- Left color indicator
-    local indicator = Instance.new("Frame")
-    indicator.Size = UDim2.new(0, 3, 0.6, 0)
-    indicator.Position = UDim2.new(0, 0, 0.2, 0)
-    indicator.BackgroundColor3 = state and Theme.ToggleON or Theme.ToggleOFF
-    indicator.BorderSizePixel = 0
-    indicator.ZIndex = 103
-    indicator.Parent = holder
+local DangerSection = InfoTab:CreateSection("⚠️ Danger Zone")
 
-    Instance.new("UICorner", indicator).CornerRadius = UDim.new(0, 2)
+InfoTab:CreateButton({
+    Name = "🗑️ DESTROY NEXUS HUB",
+    Callback = function()
+        -- Cleanup ESP
+        if RenderConn then RenderConn:Disconnect() end
+        for plr in pairs(ESPCache) do RemoveESP(plr) end
 
-    -- Label
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -68, 0, 18)
-    label.Position = UDim2.new(0, 12, 0, IsMobile and 6 or 5)
-    label.BackgroundTransparency = 1
-    label.Text = icon .. "  " .. name
-    label.TextColor3 = Theme.Text
-    label.TextSize = FontSizeBtn
-    label.Font = Enum.Font.GothamSemibold
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.ZIndex = 103
-    label.Parent = holder
+        -- Cleanup globals
+        _G.NexusLoaded = false
+        _G.NexusCache = nil
+        _G.NexusRender = nil
 
-    -- Description
-    local descLabel = Instance.new("TextLabel")
-    descLabel.Size = UDim2.new(1, -68, 0, 14)
-    descLabel.Position = UDim2.new(0, 12, 0, IsMobile and 26 or 23)
-    descLabel.BackgroundTransparency = 1
-    descLabel.Text = desc
-    descLabel.TextColor3 = Theme.SubText
-    descLabel.TextSize = FontSizeDesc
-    descLabel.Font = Enum.Font.Gotham
-    descLabel.TextXAlignment = Enum.TextXAlignment.Left
-    descLabel.ZIndex = 103
-    descLabel.Parent = holder
+        -- Destroy Rayfield
+        Rayfield:Destroy()
 
-    -- Switch
-    local swW = IsMobile and 46 or 38
-    local swH = IsMobile and 24 or 20
-    local dotSz = swH - 4
-
-    local switchBG = Instance.new("Frame")
-    switchBG.Size = UDim2.new(0, swW, 0, swH)
-    switchBG.Position = UDim2.new(1, -(swW + 10), 0.5, -swH/2)
-    switchBG.BackgroundColor3 = state and Theme.ToggleON or Theme.ToggleOFF
-    switchBG.BorderSizePixel = 0
-    switchBG.ZIndex = 103
-    switchBG.Parent = holder
-
-    Instance.new("UICorner", switchBG).CornerRadius = UDim.new(1, 0)
-
-    local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, dotSz, 0, dotSz)
-    dot.Position = state
-        and UDim2.new(1, -(dotSz + 2), 0.5, -dotSz/2)
-        or UDim2.new(0, 2, 0.5, -dotSz/2)
-    dot.BackgroundColor3 = Color3.new(1, 1, 1)
-    dot.BorderSizePixel = 0
-    dot.ZIndex = 104
-    dot.Parent = switchBG
-
-    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-
-    local function SetState(v)
-        state = v
-        callback(v)
-        local ti = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        TweenService:Create(switchBG, ti, {BackgroundColor3 = v and Theme.ToggleON or Theme.ToggleOFF}):Play()
-        TweenService:Create(dot, ti, {
-            Position = v
-                and UDim2.new(1, -(dotSz+2), 0.5, -dotSz/2)
-                or UDim2.new(0, 2, 0.5, -dotSz/2)
-        }):Play()
-        TweenService:Create(indicator, ti, {BackgroundColor3 = v and Theme.ToggleON or Theme.ToggleOFF}):Play()
-        TweenService:Create(holder, ti, {
-            BackgroundColor3 = v and Color3.fromRGB(25, 45, 35) or Theme.Button
-        }):Play()
-    end
-
-    -- Clickable overlay
-    local clickBtn = Instance.new("TextButton")
-    clickBtn.Size = UDim2.new(1, 0, 1, 0)
-    clickBtn.BackgroundTransparency = 1
-    clickBtn.Text = ""
-    clickBtn.ZIndex = 105
-    clickBtn.Parent = holder
-
-    clickBtn.MouseButton1Click:Connect(function()
-        SetState(not state)
-    end)
-
-    return {SetState = SetState}
-end
+        print("[Nexus Hub] Destroyed successfully!")
+    end,
+})
 
 -- ============================================
--- BUILD MENU
+-- DONE
 -- ============================================
-CreateSeparator("Master")
+print("╔══════════════════════════════════════╗")
+print("║   ⚡ NEXUS HUB v3.0 LOADED          ║")
+print("║   📦 Rayfield UI Edition             ║")
+print("╠══════════════════════════════════════╣")
+print("║   👁 ESP Tab    : Toggle fitur ESP   ║")
+print("║   ⚙️ Settings   : Jarak, tebal, dll  ║")
+print("║   🎨 Colors    : Kustomisasi warna  ║")
+print("║   ℹ️ Info       : Info & Destroy     ║")
+print("╚══════════════════════════════════════╝")
 
-CreateToggle("ESP Master", "⚡", "Nyalakan/matikan semua ESP", Config.Enabled, function(v)
-    Config.Enabled = v
-    if not v then
-        for _, d in pairs(ESPCache) do HideAll(d) end
-    end
-end)
-
-CreateSeparator("Visual")
-
-CreateToggle("Skeleton", "🦴", "Kerangka tulang pemain", Config.SkeletonESP, function(v) Config.SkeletonESP = v end)
-CreateToggle("Box ESP", "📦", "Kotak di sekeliling pemain", Config.BoxESP, function(v) Config.BoxESP = v end)
-CreateToggle("Name ESP", "📛", "Nama di atas kepala", Config.NameESP, function(v) Config.NameESP = v end)
-CreateToggle("Health Bar", "❤️", "Bar HP di samping kiri", Config.HealthESP, function(v) Config.HealthESP = v end)
-CreateToggle("Distance", "📏", "Jarak dalam studs", Config.DistanceESP, function(v) Config.DistanceESP = v end)
-CreateToggle("Tracers", "📍", "Garis dari layar ke pemain", Config.Tracers, function(v) Config.Tracers = v end)
-CreateToggle("Head Dot", "🔴", "Titik di kepala pemain", Config.HeadDot, function(v) Config.HeadDot = v end)
-
-CreateSeparator("Settings")
-
-CreateToggle("Team Check", "🤝", "Sembunyikan teman satu tim", Config.TeamCheck, function(v) Config.TeamCheck = v end)
-
--- Destroy button
-ToggleOrder = ToggleOrder + 1
-local destroyBtn = Instance.new("TextButton")
-destroyBtn.Size = UDim2.new(1, 0, 0, IsMobile and 44 or 38)
-destroyBtn.BackgroundColor3 = Theme.Danger
-destroyBtn.Text = "🗑️  DESTROY NEXUS HUB"
-destroyBtn.TextColor3 = Color3.new(1, 1, 1)
-destroyBtn.TextSize = FontSizeBtn
-destroyBtn.Font = Enum.Font.GothamBold
-destroyBtn.BorderSizePixel = 0
-destroyBtn.LayoutOrder = ToggleOrder
-destroyBtn.ZIndex = 103
-destroyBtn.AutoButtonColor = true
-destroyBtn.Parent = ScrollFrame
-
-Instance.new("UICorner", destroyBtn).CornerRadius = Theme.CornerSmall
-
-destroyBtn.MouseButton1Click:Connect(function()
-    if RenderConn then RenderConn:Disconnect() end
-    for plr in pairs(ESPCache) do RemoveESP(plr) end
-    ScreenGui:Destroy()
-    _G.NexusHubLoaded = false
-    _G.NexusGui = nil
-    _G.NexusESPCache = nil
-    _G.NexusRenderConn = nil
-    _G.NexusToggleMenu = nil
-    print("[Nexus Hub] Destroyed successfully!")
-end)
-
--- ============================================
--- MENU ANIMATION
--- ============================================
-local function ToggleMenu()
-    MenuOpen = not MenuOpen
-
-    if MenuOpen then
-        MainFrame.Visible = true
-        MainFrame.BackgroundTransparency = 1
-        MainFrame.Size = UDim2.new(0, MenuWidth, 0, 0)
-        MainFrame.Position = UDim2.new(0.5, -MenuWidth/2, 0.5, 0)
-
-        local ti = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        TweenService:Create(MainFrame, ti, {
-            Size = UDim2.new(0, MenuWidth, 0, MenuHeight),
-            Position = UDim2.new(0.5, -MenuWidth/2, 0.5, -MenuHeight/2),
-            BackgroundTransparency = 0,
-        }):Play()
-
-        TweenService:Create(FloatBtn, TweenInfo.new(0.25), {
-            BackgroundColor3 = Theme.ToggleON,
-        }):Play()
-    else
-        local ti = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        TweenService:Create(MainFrame, ti, {
-            Size = UDim2.new(0, MenuWidth, 0, 0),
-            Position = UDim2.new(0.5, -MenuWidth/2, 0.5, 0),
-            BackgroundTransparency = 1,
-        }):Play()
-
-        TweenService:Create(FloatBtn, TweenInfo.new(0.25), {
-            BackgroundColor3 = Theme.Accent,
-        }):Play()
-
-        task.delay(0.25, function()
-            if not MenuOpen then
-                MainFrame.Visible = false
-            end
-        end)
-    end
-end
-
-_G.NexusToggleMenu = ToggleMenu
-
-CloseBtn.MouseButton1Click:Connect(function()
-    if MenuOpen then ToggleMenu() end
-end)
-
--- Keyboard toggle
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.RightShift
-    or input.KeyCode == Enum.KeyCode.Insert then
-        ToggleMenu()
-    end
-end)
-
--- ============================================
--- STARTUP NOTIFICATION
--- ============================================
-pcall(function()
-    StarterGui:SetCore("SendNotification", {
-        Title = "⚡ Nexus Hub Loaded",
-        Text = IsMobile
-            and "Tap tombol [N] untuk buka menu"
-            or "RightShift / Insert / klik [N]",
-        Duration = 5,
-    })
-end)
-
-print("╔══════════════════════════════════╗")
-print("║     ⚡ NEXUS HUB v2.0 LOADED    ║")
-print("╠══════════════════════════════════╣")
-print("║  📱 Mobile : Tap tombol [N]     ║")
-print("║  💻 PC     : RightShift/Insert  ║")
-print("║  🗑️  Destroy: Tombol di menu     ║")
-print("╚══════════════════════════════════╝")
+Rayfield:Notify({
+    Title = "⚡ Nexus Hub v3.0",
+    Content = "Script loaded! Buka menu untuk setting ESP.",
+    Duration = 5,
+    Image = 4483362458,
+})
