@@ -1,6 +1,8 @@
 --[[
     ╔══════════════════════════════════════════╗
-    ║        NEXUS HUB v3.0 - RAYFIELD       ║
+    ║      NEXUS HUB v2.0 - RAYFIELD         ║
+    ║   ESP Engine v2 (Fixed Accuracy)        ║
+    ║   GUI: Rayfield                         ║
     ║   Game: Operation One / Universal       ║
     ║   Support: Mobile & PC                  ║
     ╚══════════════════════════════════════════╝
@@ -15,9 +17,8 @@ if _G.NexusLoaded then
         if _G.NexusCache then
             for _, d in pairs(_G.NexusCache) do
                 pcall(function()
-                    for _, b in pairs(d.Bones or {}) do b:Remove() end
-                    for _, b in pairs(d.Box or {}) do b:Remove() end
-                    for _, b in pairs(d.Corners or {}) do b:Remove() end
+                    for _, b in pairs(d.Bones or {}) do if b then b:Remove() end end
+                    for _, b in pairs(d.Box or {}) do if b then b:Remove() end end
                     if d.Name then d.Name:Remove() end
                     if d.Dist then d.Dist:Remove() end
                     if d.HPBG then d.HPBG:Remove() end
@@ -25,10 +26,12 @@ if _G.NexusLoaded then
                     if d.HPText then d.HPText:Remove() end
                     if d.Tracer then d.Tracer:Remove() end
                     if d.HeadDot then d.HeadDot:Remove() end
-                    if d.Weapon then d.Weapon:Remove() end
                 end)
             end
         end
+    end)
+    pcall(function()
+        if Rayfield then Rayfield:Destroy() end
     end)
     task.wait(0.5)
 end
@@ -40,36 +43,37 @@ _G.NexusLoaded = true
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local MarketplaceService = game:GetService("MarketplaceService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
+local IsMobile = UserInputService.TouchEnabled
 
 -- ============================================
--- LOAD RAYFIELD
+-- LOAD RAYFIELD UI
 -- ============================================
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 -- ============================================
 -- CONFIG
 -- ============================================
 local Config = {
+    -- Toggles
     Enabled = true,
     SkeletonESP = true,
     BoxESP = true,
-    CornerBoxESP = false,
     NameESP = true,
     HealthESP = true,
     DistanceESP = true,
     Tracers = false,
     HeadDot = true,
-    WeaponESP = true,
     TeamCheck = false,
-    VisibleCheck = false,
+
+    -- Values
     MaxDistance = 2500,
 
+    -- Colors
     EnemyColor = Color3.fromRGB(255, 60, 60),
     TeamColor = Color3.fromRGB(60, 255, 60),
-    VisibleColor = Color3.fromRGB(0, 255, 0),
-    HiddenColor = Color3.fromRGB(255, 60, 60),
     SkeletonColor = Color3.fromRGB(255, 255, 255),
     BoxColor = Color3.fromRGB(255, 255, 0),
     TracerColor = Color3.fromRGB(0, 200, 255),
@@ -77,16 +81,16 @@ local Config = {
     HealthHighColor = Color3.fromRGB(0, 255, 0),
     HealthLowColor = Color3.fromRGB(255, 0, 0),
 
+    -- Thickness / Size
     SkeletonThickness = 1.5,
     BoxThickness = 1.5,
-    TracerThickness = 1.2,
+    TracerThickness = 1,
     HeadDotRadius = 3,
     TextSize = 13,
-    TracerOrigin = "Bottom", -- Bottom / Center / Mouse
 }
 
 -- ============================================
--- BONE CONNECTIONS
+-- SKELETON BONE CONNECTIONS
 -- ============================================
 local R15Bones = {
     {"Head", "UpperTorso"},
@@ -114,22 +118,22 @@ local R6Bones = {
 }
 
 -- ============================================
--- UTILITY
+-- UTILITY FUNCTIONS (v2 Accuracy Fix)
 -- ============================================
 local function W2S(pos)
     local ok, res = pcall(function()
         return Camera:WorldToViewportPoint(pos)
     end)
-    if not ok then return Vector2.new(0, 0), false, 0 end
+    if not ok or not res then return Vector2.new(0, 0), false, 0 end
     return Vector2.new(res.X, res.Y), res.Z > 0, res.Z
 end
 
 local function GetDist(pos)
     local c = LocalPlayer.Character
     if not c then return math.huge end
-    local r = c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("Torso")
-    if not r then return math.huge end
-    return (r.Position - pos).Magnitude
+    local root = c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("Torso")
+    if not root then return math.huge end
+    return (root.Position - pos).Magnitude
 end
 
 local function IsAlly(plr)
@@ -144,24 +148,20 @@ end
 
 local function LerpColor(c1, c2, a)
     a = math.clamp(a, 0, 1)
-    return Color3.new(c1.R+(c2.R-c1.R)*a, c1.G+(c2.G-c1.G)*a, c1.B+(c2.B-c1.B)*a)
+    return Color3.new(
+        c1.R + (c2.R - c1.R) * a,
+        c1.G + (c2.G - c1.G) * a,
+        c1.B + (c2.B - c1.B) * a
+    )
 end
 
 local function IsR15(char)
     return char:FindFirstChild("UpperTorso") ~= nil
 end
 
-local function GetEquippedTool(char)
-    for _, v in pairs(char:GetChildren()) do
-        if v:IsA("Tool") or v:IsA("BackpackItem") then
-            return v.Name
-        end
-    end
-    return nil
-end
-
 -- ============================================
--- ACCURATE BOUNDING BOX
+-- ACCURATE BOUNDING BOX (v2 Fix)
+-- Hitung dari part asli karakter
 -- ============================================
 local function GetBounds(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
@@ -174,51 +174,65 @@ local function GetBounds(char)
     local topPos, bottomPos
 
     if hum.RigType == Enum.HumanoidRigType.R15 then
-        local lf = char:FindFirstChild("LeftFoot")
-        local rf = char:FindFirstChild("RightFoot")
+        -- R15: pakai part asli untuk akurasi
+        local leftFoot = char:FindFirstChild("LeftFoot")
+        local rightFoot = char:FindFirstChild("RightFoot")
+
         topPos = head.Position + Vector3.new(0, head.Size.Y / 2 + 0.3, 0)
-        if lf and rf then
-            local fy = math.min(lf.Position.Y - lf.Size.Y/2, rf.Position.Y - rf.Size.Y/2)
-            bottomPos = Vector3.new(root.Position.X, fy, root.Position.Z)
+
+        if leftFoot and rightFoot then
+            local footY = math.min(
+                leftFoot.Position.Y - leftFoot.Size.Y / 2,
+                rightFoot.Position.Y - rightFoot.Size.Y / 2
+            )
+            bottomPos = Vector3.new(root.Position.X, footY, root.Position.Z)
         else
             bottomPos = root.Position - Vector3.new(0, 3, 0)
         end
     else
-        local ll = char:FindFirstChild("Left Leg")
-        local rl = char:FindFirstChild("Right Leg")
+        -- R6
+        local leftLeg = char:FindFirstChild("Left Leg")
+        local rightLeg = char:FindFirstChild("Right Leg")
+
         topPos = head.Position + Vector3.new(0, head.Size.Y / 2 + 0.3, 0)
-        if ll and rl then
-            local fy = math.min(ll.Position.Y - ll.Size.Y/2, rl.Position.Y - rl.Size.Y/2)
-            bottomPos = Vector3.new(root.Position.X, fy, root.Position.Z)
+
+        if leftLeg and rightLeg then
+            local footY = math.min(
+                leftLeg.Position.Y - leftLeg.Size.Y / 2,
+                rightLeg.Position.Y - rightLeg.Size.Y / 2
+            )
+            bottomPos = Vector3.new(root.Position.X, footY, root.Position.Z)
         else
             bottomPos = root.Position - Vector3.new(0, 3, 0)
         end
     end
 
-    local topS, topOn = W2S(topPos)
-    local botS, botOn = W2S(bottomPos)
-    local rootS, rootOn = W2S(root.Position)
+    local topScreen, topOn = W2S(topPos)
+    local botScreen, botOn = W2S(bottomPos)
+    local rootScreen, rootOn = W2S(root.Position)
 
     if not rootOn then return nil end
 
-    local h = math.abs(botS.Y - topS.Y)
-    if h < 4 then return nil end
+    local height = math.abs(botScreen.Y - topScreen.Y)
+    if height < 4 then return nil end
 
-    local w = h * 0.55
+    local width = height * 0.55
 
     return {
-        Top = topS, Bottom = botS,
-        Height = h, Width = w,
-        Center = Vector2.new(rootS.X, (topS.Y + botS.Y) / 2)
+        Top = topScreen,
+        Bottom = botScreen,
+        Height = height,
+        Width = width,
+        Center = Vector2.new(rootScreen.X, (topScreen.Y + botScreen.Y) / 2),
     }
 end
 
 -- ============================================
--- SAFE DRAWING
+-- SAFE DRAWING CREATION
 -- ============================================
-local function SafeDraw(t, props)
+local function SafeDraw(drawType, props)
     local ok, obj = pcall(function()
-        local d = Drawing.new(t)
+        local d = Drawing.new(drawType)
         d.Visible = false
         for k, v in pairs(props or {}) do
             pcall(function() d[k] = v end)
@@ -235,32 +249,77 @@ local ESPCache = {}
 _G.NexusCache = ESPCache
 
 local function MakeESP(plr)
-    if plr == LocalPlayer or ESPCache[plr] then return end
+    if plr == LocalPlayer then return end
+    if ESPCache[plr] then return end
 
     local d = {
         Player = plr,
         Bones = {},
         Box = {},
-        Corners = {},
-        Name = SafeDraw("Text", {Color=Color3.new(1,1,1), Size=Config.TextSize, Center=true, Outline=true, OutlineColor=Color3.new(0,0,0), Font=Drawing.Fonts.UI}),
-        Dist = SafeDraw("Text", {Color=Color3.fromRGB(200,200,200), Size=Config.TextSize-2, Center=true, Outline=true, OutlineColor=Color3.new(0,0,0), Font=Drawing.Fonts.UI}),
-        Weapon = SafeDraw("Text", {Color=Color3.fromRGB(255,200,80), Size=Config.TextSize-2, Center=true, Outline=true, OutlineColor=Color3.new(0,0,0), Font=Drawing.Fonts.UI}),
-        HPBG = SafeDraw("Line", {Color=Color3.new(0,0,0), Thickness=5}),
-        HP = SafeDraw("Line", {Color=Color3.new(0,1,0), Thickness=2.5}),
-        HPText = SafeDraw("Text", {Color=Color3.new(1,1,1), Size=Config.TextSize-3, Center=true, Outline=true, OutlineColor=Color3.new(0,0,0), Font=Drawing.Fonts.UI}),
-        Tracer = SafeDraw("Line", {Color=Config.TracerColor, Thickness=Config.TracerThickness}),
-        HeadDot = SafeDraw("Circle", {Color=Config.EnemyColor, Filled=true, NumSides=20}),
+
+        Name = SafeDraw("Text", {
+            Color = Config.NameColor,
+            Size = Config.TextSize,
+            Center = true,
+            Outline = true,
+            OutlineColor = Color3.new(0, 0, 0),
+            Font = Drawing.Fonts.UI,
+        }),
+
+        Dist = SafeDraw("Text", {
+            Color = Color3.fromRGB(200, 200, 200),
+            Size = Config.TextSize - 2,
+            Center = true,
+            Outline = true,
+            OutlineColor = Color3.new(0, 0, 0),
+            Font = Drawing.Fonts.UI,
+        }),
+
+        HPBG = SafeDraw("Line", {
+            Color = Color3.new(0, 0, 0),
+            Thickness = 5,
+        }),
+
+        HP = SafeDraw("Line", {
+            Color = Config.HealthHighColor,
+            Thickness = 2.5,
+        }),
+
+        HPText = SafeDraw("Text", {
+            Color = Color3.new(1, 1, 1),
+            Size = Config.TextSize - 3,
+            Center = true,
+            Outline = true,
+            OutlineColor = Color3.new(0, 0, 0),
+            Font = Drawing.Fonts.UI,
+        }),
+
+        Tracer = SafeDraw("Line", {
+            Color = Config.TracerColor,
+            Thickness = Config.TracerThickness,
+        }),
+
+        HeadDot = SafeDraw("Circle", {
+            Color = Config.EnemyColor,
+            Filled = true,
+            NumSides = 20,
+        }),
     }
 
+    -- 14 bones max (R15)
     for i = 1, 14 do
-        d.Bones[i] = SafeDraw("Line", {Color=Config.SkeletonColor, Thickness=Config.SkeletonThickness})
+        d.Bones[i] = SafeDraw("Line", {
+            Color = Config.SkeletonColor,
+            Thickness = Config.SkeletonThickness,
+        })
     end
+
+    -- 4 box lines
     for i = 1, 4 do
-        d.Box[i] = SafeDraw("Line", {Color=Config.BoxColor, Thickness=Config.BoxThickness})
-    end
-    -- Corner box: 8 lines (4 corners x 2 lines each)
-    for i = 1, 8 do
-        d.Corners[i] = SafeDraw("Line", {Color=Config.BoxColor, Thickness=Config.BoxThickness})
+        d.Box[i] = SafeDraw("Line", {
+            Color = Config.BoxColor,
+            Thickness = Config.BoxThickness,
+        })
     end
 
     ESPCache[plr] = d
@@ -269,17 +328,15 @@ end
 local function HideAll(d)
     if not d then return end
     pcall(function()
-        for _,b in pairs(d.Bones) do if b then b.Visible=false end end
-        for _,b in pairs(d.Box) do if b then b.Visible=false end end
-        for _,b in pairs(d.Corners) do if b then b.Visible=false end end
-        if d.Name then d.Name.Visible=false end
-        if d.Dist then d.Dist.Visible=false end
-        if d.Weapon then d.Weapon.Visible=false end
-        if d.HPBG then d.HPBG.Visible=false end
-        if d.HP then d.HP.Visible=false end
-        if d.HPText then d.HPText.Visible=false end
-        if d.Tracer then d.Tracer.Visible=false end
-        if d.HeadDot then d.HeadDot.Visible=false end
+        for _, b in pairs(d.Bones) do if b then b.Visible = false end end
+        for _, b in pairs(d.Box) do if b then b.Visible = false end end
+        if d.Name then d.Name.Visible = false end
+        if d.Dist then d.Dist.Visible = false end
+        if d.HPBG then d.HPBG.Visible = false end
+        if d.HP then d.HP.Visible = false end
+        if d.HPText then d.HPText.Visible = false end
+        if d.Tracer then d.Tracer.Visible = false end
+        if d.HeadDot then d.HeadDot.Visible = false end
     end)
 end
 
@@ -287,12 +344,10 @@ local function RemoveESP(plr)
     local d = ESPCache[plr]
     if not d then return end
     pcall(function()
-        for _,b in pairs(d.Bones) do if b then b:Remove() end end
-        for _,b in pairs(d.Box) do if b then b:Remove() end end
-        for _,b in pairs(d.Corners) do if b then b:Remove() end end
+        for _, b in pairs(d.Bones) do if b then b:Remove() end end
+        for _, b in pairs(d.Box) do if b then b:Remove() end end
         if d.Name then d.Name:Remove() end
         if d.Dist then d.Dist:Remove() end
-        if d.Weapon then d.Weapon:Remove() end
         if d.HPBG then d.HPBG:Remove() end
         if d.HP then d.HP:Remove() end
         if d.HPText then d.HPText:Remove() end
@@ -303,209 +358,261 @@ local function RemoveESP(plr)
 end
 
 -- ============================================
--- UPDATE ESP
+-- UPDATE ESP (v2 Engine - Fixed Accuracy)
 -- ============================================
 local function UpdateESP(plr, d)
     if not d then return end
-    if not Config.Enabled or plr == LocalPlayer then HideAll(d) return end
 
+    -- Master check
+    if not Config.Enabled or plr == LocalPlayer then
+        HideAll(d)
+        return
+    end
+
+    -- Character validation
     local char = plr.Character
     if not char then HideAll(d) return end
 
     local hum = char:FindFirstChildOfClass("Humanoid")
     local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
-    if not hum or not root or hum.Health <= 0 then HideAll(d) return end
+    if not hum or not root then HideAll(d) return end
+    if hum.Health <= 0 then HideAll(d) return end
 
+    -- Distance check
     local dist = GetDist(root.Position)
     if dist > Config.MaxDistance then HideAll(d) return end
+
+    -- Team check
     if Config.TeamCheck and IsAlly(plr) then HideAll(d) return end
 
-    local _, onScr, depth = W2S(root.Position)
-    if not onScr or depth <= 0 then HideAll(d) return end
+    -- Screen check
+    local _, rootOnScreen, rootDepth = W2S(root.Position)
+    if not rootOnScreen or rootDepth <= 0 then HideAll(d) return end
 
+    -- Bounding box
     local bounds = GetBounds(char)
     if not bounds then HideAll(d) return end
 
     local col = GetColor(plr)
 
-    -- ====== SKELETON ======
+    -- ===========================
+    -- 1. SKELETON ESP
+    -- ===========================
     if Config.SkeletonESP then
         local boneList = IsR15(char) and R15Bones or R6Bones
+
         for i, bp in ipairs(boneList) do
             if d.Bones[i] then
                 local p1 = char:FindFirstChild(bp[1])
                 local p2 = char:FindFirstChild(bp[2])
+
                 if p1 and p2 then
                     local s1, o1 = W2S(p1.Position)
                     local s2, o2 = W2S(p2.Position)
+
                     if o1 and o2 then
                         d.Bones[i].From = s1
                         d.Bones[i].To = s2
                         d.Bones[i].Color = Config.SkeletonColor
                         d.Bones[i].Thickness = Config.SkeletonThickness
                         d.Bones[i].Visible = true
-                    else d.Bones[i].Visible = false end
-                else d.Bones[i].Visible = false end
+                    else
+                        d.Bones[i].Visible = false
+                    end
+                else
+                    d.Bones[i].Visible = false
+                end
             end
         end
-        for i = #(IsR15(char) and R15Bones or R6Bones) + 1, #d.Bones do
+
+        -- Hide unused bones (R6 hanya 5)
+        local cnt = #boneList
+        for i = cnt + 1, #d.Bones do
             if d.Bones[i] then d.Bones[i].Visible = false end
         end
     else
-        for _, b in pairs(d.Bones) do if b then b.Visible = false end end
+        for _, b in pairs(d.Bones) do
+            if b then b.Visible = false end
+        end
     end
 
-    -- ====== FULL BOX ======
+    -- ===========================
+    -- 2. BOX ESP
+    -- ===========================
     if Config.BoxESP then
-        local x, hw = bounds.Center.X, bounds.Width / 2
-        local tl = Vector2.new(x-hw, bounds.Top.Y)
-        local tr = Vector2.new(x+hw, bounds.Top.Y)
-        local bl = Vector2.new(x-hw, bounds.Bottom.Y)
-        local br = Vector2.new(x+hw, bounds.Bottom.Y)
-        if d.Box[1] then d.Box[1].From=tl d.Box[1].To=tr d.Box[1].Color=col d.Box[1].Thickness=Config.BoxThickness d.Box[1].Visible=true end
-        if d.Box[2] then d.Box[2].From=bl d.Box[2].To=br d.Box[2].Color=col d.Box[2].Thickness=Config.BoxThickness d.Box[2].Visible=true end
-        if d.Box[3] then d.Box[3].From=tl d.Box[3].To=bl d.Box[3].Color=col d.Box[3].Thickness=Config.BoxThickness d.Box[3].Visible=true end
-        if d.Box[4] then d.Box[4].From=tr d.Box[4].To=br d.Box[4].Color=col d.Box[4].Thickness=Config.BoxThickness d.Box[4].Visible=true end
+        local x = bounds.Center.X
+        local hw = bounds.Width / 2
+
+        local tl = Vector2.new(x - hw, bounds.Top.Y)
+        local tr = Vector2.new(x + hw, bounds.Top.Y)
+        local bl = Vector2.new(x - hw, bounds.Bottom.Y)
+        local br = Vector2.new(x + hw, bounds.Bottom.Y)
+
+        -- Top
+        if d.Box[1] then
+            d.Box[1].From = tl
+            d.Box[1].To = tr
+            d.Box[1].Color = col
+            d.Box[1].Thickness = Config.BoxThickness
+            d.Box[1].Visible = true
+        end
+        -- Bottom
+        if d.Box[2] then
+            d.Box[2].From = bl
+            d.Box[2].To = br
+            d.Box[2].Color = col
+            d.Box[2].Thickness = Config.BoxThickness
+            d.Box[2].Visible = true
+        end
+        -- Left
+        if d.Box[3] then
+            d.Box[3].From = tl
+            d.Box[3].To = bl
+            d.Box[3].Color = col
+            d.Box[3].Thickness = Config.BoxThickness
+            d.Box[3].Visible = true
+        end
+        -- Right
+        if d.Box[4] then
+            d.Box[4].From = tr
+            d.Box[4].To = br
+            d.Box[4].Color = col
+            d.Box[4].Thickness = Config.BoxThickness
+            d.Box[4].Visible = true
+        end
     else
-        for _, b in pairs(d.Box) do if b then b.Visible = false end end
+        for _, b in pairs(d.Box) do
+            if b then b.Visible = false end
+        end
     end
 
-    -- ====== CORNER BOX ======
-    if Config.CornerBoxESP then
-        local x, hw = bounds.Center.X, bounds.Width / 2
-        local cLen = bounds.Height * 0.2
-
-        local tl = Vector2.new(x-hw, bounds.Top.Y)
-        local tr = Vector2.new(x+hw, bounds.Top.Y)
-        local bl = Vector2.new(x-hw, bounds.Bottom.Y)
-        local br = Vector2.new(x+hw, bounds.Bottom.Y)
-
-        -- Top-left
-        if d.Corners[1] then d.Corners[1].From=tl d.Corners[1].To=Vector2.new(tl.X+cLen,tl.Y) d.Corners[1].Color=col d.Corners[1].Thickness=Config.BoxThickness d.Corners[1].Visible=true end
-        if d.Corners[2] then d.Corners[2].From=tl d.Corners[2].To=Vector2.new(tl.X,tl.Y+cLen) d.Corners[2].Color=col d.Corners[2].Thickness=Config.BoxThickness d.Corners[2].Visible=true end
-        -- Top-right
-        if d.Corners[3] then d.Corners[3].From=tr d.Corners[3].To=Vector2.new(tr.X-cLen,tr.Y) d.Corners[3].Color=col d.Corners[3].Thickness=Config.BoxThickness d.Corners[3].Visible=true end
-        if d.Corners[4] then d.Corners[4].From=tr d.Corners[4].To=Vector2.new(tr.X,tr.Y+cLen) d.Corners[4].Color=col d.Corners[4].Thickness=Config.BoxThickness d.Corners[4].Visible=true end
-        -- Bottom-left
-        if d.Corners[5] then d.Corners[5].From=bl d.Corners[5].To=Vector2.new(bl.X+cLen,bl.Y) d.Corners[5].Color=col d.Corners[5].Thickness=Config.BoxThickness d.Corners[5].Visible=true end
-        if d.Corners[6] then d.Corners[6].From=bl d.Corners[6].To=Vector2.new(bl.X,bl.Y-cLen) d.Corners[6].Color=col d.Corners[6].Thickness=Config.BoxThickness d.Corners[6].Visible=true end
-        -- Bottom-right
-        if d.Corners[7] then d.Corners[7].From=br d.Corners[7].To=Vector2.new(br.X-cLen,br.Y) d.Corners[7].Color=col d.Corners[7].Thickness=Config.BoxThickness d.Corners[7].Visible=true end
-        if d.Corners[8] then d.Corners[8].From=br d.Corners[8].To=Vector2.new(br.X,br.Y-cLen) d.Corners[8].Color=col d.Corners[8].Thickness=Config.BoxThickness d.Corners[8].Visible=true end
-    else
-        for _, b in pairs(d.Corners) do if b then b.Visible = false end end
-    end
-
-    -- ====== NAME ======
+    -- ===========================
+    -- 3. NAME ESP
+    -- ===========================
     if Config.NameESP and d.Name then
         d.Name.Text = plr.DisplayName
         d.Name.Position = Vector2.new(bounds.Center.X, bounds.Top.Y - 16)
         d.Name.Color = col
         d.Name.Size = Config.TextSize
         d.Name.Visible = true
-    elseif d.Name then d.Name.Visible = false end
+    elseif d.Name then
+        d.Name.Visible = false
+    end
 
-    -- ====== DISTANCE ======
+    -- ===========================
+    -- 4. DISTANCE ESP
+    -- ===========================
     if Config.DistanceESP and d.Dist then
         d.Dist.Text = string.format("[%dm]", math.floor(dist))
         d.Dist.Position = Vector2.new(bounds.Center.X, bounds.Bottom.Y + 3)
+        d.Dist.Color = Color3.fromRGB(200, 200, 200)
+        d.Dist.Size = Config.TextSize - 2
         d.Dist.Visible = true
-    elseif d.Dist then d.Dist.Visible = false end
+    elseif d.Dist then
+        d.Dist.Visible = false
+    end
 
-    -- ====== WEAPON ======
-    if Config.WeaponESP and d.Weapon then
-        local tool = GetEquippedTool(char)
-        if tool then
-            local yOff = Config.DistanceESP and 15 or 3
-            d.Weapon.Text = "🔫 " .. tool
-            d.Weapon.Position = Vector2.new(bounds.Center.X, bounds.Bottom.Y + yOff)
-            d.Weapon.Color = Color3.fromRGB(255, 200, 80)
-            d.Weapon.Visible = true
-        else
-            d.Weapon.Visible = false
-        end
-    elseif d.Weapon then d.Weapon.Visible = false end
-
-    -- ====== HEALTH BAR ======
+    -- ===========================
+    -- 5. HEALTH BAR
+    -- ===========================
     if Config.HealthESP then
         local pct = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
         local hcol = LerpColor(Config.HealthLowColor, Config.HealthHighColor, pct)
-        local bx = bounds.Center.X - bounds.Width/2 - 6
+        local bx = bounds.Center.X - bounds.Width / 2 - 6
 
+        -- Background
         if d.HPBG then
             d.HPBG.From = Vector2.new(bx, bounds.Top.Y)
             d.HPBG.To = Vector2.new(bx, bounds.Bottom.Y)
             d.HPBG.Thickness = 5
-            d.HPBG.Color = Color3.new(0,0,0)
+            d.HPBG.Color = Color3.new(0, 0, 0)
             d.HPBG.Transparency = 0.6
             d.HPBG.Visible = true
         end
+
+        -- Health fill
         if d.HP then
-            local ht = bounds.Bottom.Y - (bounds.Height * pct)
-            d.HP.From = Vector2.new(bx, ht)
+            local healthTop = bounds.Bottom.Y - (bounds.Height * pct)
+            d.HP.From = Vector2.new(bx, healthTop)
             d.HP.To = Vector2.new(bx, bounds.Bottom.Y)
             d.HP.Color = hcol
             d.HP.Thickness = 2.5
             d.HP.Visible = true
         end
+
+        -- HP number
         if d.HPText then
             if pct < 1 then
-                local ht = bounds.Bottom.Y - (bounds.Height * pct)
+                local healthTop = bounds.Bottom.Y - (bounds.Height * pct)
                 d.HPText.Text = tostring(math.floor(hum.Health))
-                d.HPText.Position = Vector2.new(bx, ht - 12)
+                d.HPText.Position = Vector2.new(bx, healthTop - 12)
                 d.HPText.Color = hcol
+                d.HPText.Size = Config.TextSize - 3
                 d.HPText.Visible = true
-            else d.HPText.Visible = false end
+            else
+                d.HPText.Visible = false
+            end
         end
     else
-        if d.HPBG then d.HPBG.Visible=false end
-        if d.HP then d.HP.Visible=false end
-        if d.HPText then d.HPText.Visible=false end
+        if d.HPBG then d.HPBG.Visible = false end
+        if d.HP then d.HP.Visible = false end
+        if d.HPText then d.HPText.Visible = false end
     end
 
-    -- ====== TRACERS ======
+    -- ===========================
+    -- 6. TRACERS
+    -- ===========================
     if Config.Tracers and d.Tracer then
-        local vs = Camera.ViewportSize
-        local fromPos
-
-        if Config.TracerOrigin == "Center" then
-            fromPos = Vector2.new(vs.X/2, vs.Y/2)
-        elseif Config.TracerOrigin == "Mouse" then
-            local mp = UserInputService:GetMouseLocation()
-            fromPos = Vector2.new(mp.X, mp.Y)
-        else
-            fromPos = Vector2.new(vs.X/2, vs.Y)
-        end
-
-        d.Tracer.From = fromPos
+        local viewportSize = Camera.ViewportSize
+        d.Tracer.From = Vector2.new(viewportSize.X / 2, viewportSize.Y)
         d.Tracer.To = Vector2.new(bounds.Center.X, bounds.Bottom.Y)
         d.Tracer.Color = Config.TracerColor
         d.Tracer.Thickness = Config.TracerThickness
         d.Tracer.Visible = true
-    elseif d.Tracer then d.Tracer.Visible = false end
+    elseif d.Tracer then
+        d.Tracer.Visible = false
+    end
 
-    -- ====== HEAD DOT ======
+    -- ===========================
+    -- 7. HEAD DOT
+    -- ===========================
     if Config.HeadDot and d.HeadDot then
         local head = char:FindFirstChild("Head")
         if head then
-            local hp, ho = W2S(head.Position)
-            if ho then
-                d.HeadDot.Position = hp
-                d.HeadDot.Radius = math.clamp(Config.HeadDotRadius * (350/math.max(dist,1)), 1, 8)
+            local headPos, headOn = W2S(head.Position)
+            if headOn then
+                d.HeadDot.Position = headPos
+                d.HeadDot.Radius = math.clamp(
+                    Config.HeadDotRadius * (350 / math.max(dist, 1)), 1, 8
+                )
                 d.HeadDot.Color = col
                 d.HeadDot.Filled = true
                 d.HeadDot.Visible = true
-            else d.HeadDot.Visible = false end
-        else d.HeadDot.Visible = false end
-    elseif d.HeadDot then d.HeadDot.Visible = false end
+            else
+                d.HeadDot.Visible = false
+            end
+        else
+            d.HeadDot.Visible = false
+        end
+    elseif d.HeadDot then
+        d.HeadDot.Visible = false
+    end
 end
 
 -- ============================================
 -- PLAYER EVENTS
 -- ============================================
-for _, p in ipairs(Players:GetPlayers()) do task.spawn(MakeESP, p) end
-Players.PlayerAdded:Connect(function(p) task.spawn(MakeESP, p) end)
-Players.PlayerRemoving:Connect(function(p) task.spawn(RemoveESP, p) end)
+for _, p in ipairs(Players:GetPlayers()) do
+    task.spawn(MakeESP, p)
+end
+
+Players.PlayerAdded:Connect(function(p)
+    task.spawn(MakeESP, p)
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+    task.spawn(RemoveESP, p)
+end)
 
 -- ============================================
 -- RENDER LOOP
@@ -520,25 +627,27 @@ local RenderConn = RunService.RenderStepped:Connect(function()
                 HideAll(data)
             end
         end)
-        if not ok then HideAll(data) end
+        if not ok then
+            HideAll(data)
+        end
     end
 end)
 _G.NexusRender = RenderConn
 
 -- ============================================
 -- ============================================
---         RAYFIELD GUI
+--          RAYFIELD GUI SETUP
 -- ============================================
 -- ============================================
 
 local Window = Rayfield:CreateWindow({
-    Name = "⚡ NEXUS HUB v3.0",
-    LoadingTitle = "Nexus Hub",
-    LoadingSubtitle = "by Nexus Team",
+    Name = "⚡ NEXUS HUB v2.0",
+    LoadingTitle = "NEXUS HUB",
+    LoadingSubtitle = "Loading ESP Module...",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "NexusHub",
-        FileName = "NexusConfig"
+        FileName = "NexusV2Config",
     },
     Discord = {
         Enabled = false,
@@ -546,277 +655,317 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false,
 })
 
--- ============================================
--- TAB 1: ESP VISUALS
--- ============================================
+-- ==============================
+-- TAB 1: ESP
+-- ==============================
 local ESPTab = Window:CreateTab("👁 ESP", 4483362458)
 
--- Section: Main
-local MainSection = ESPTab:CreateSection("Main Control")
+ESPTab:CreateSection("Master")
 
 ESPTab:CreateToggle({
     Name = "⚡ Enable ESP",
     CurrentValue = Config.Enabled,
-    Flag = "ESP_Master",
-    Callback = function(v)
-        Config.Enabled = v
-        if not v then
-            for _, d in pairs(ESPCache) do HideAll(d) end
+    Flag = "ESP_Enabled",
+    Callback = function(val)
+        Config.Enabled = val
+        if not val then
+            for _, d in pairs(ESPCache) do
+                HideAll(d)
+            end
         end
     end,
 })
 
--- Section: Visual ESP
-local VisualSection = ESPTab:CreateSection("Visual ESP")
+ESPTab:CreateSection("ESP Features")
 
 ESPTab:CreateToggle({
     Name = "🦴 Skeleton ESP",
     CurrentValue = Config.SkeletonESP,
     Flag = "ESP_Skeleton",
-    Callback = function(v) Config.SkeletonESP = v end,
+    Callback = function(val)
+        Config.SkeletonESP = val
+    end,
 })
 
 ESPTab:CreateToggle({
-    Name = "📦 Full Box ESP",
+    Name = "📦 Box ESP",
     CurrentValue = Config.BoxESP,
     Flag = "ESP_Box",
-    Callback = function(v) Config.BoxESP = v end,
-})
-
-ESPTab:CreateToggle({
-    Name = "📐 Corner Box ESP",
-    CurrentValue = Config.CornerBoxESP,
-    Flag = "ESP_CornerBox",
-    Callback = function(v) Config.CornerBoxESP = v end,
+    Callback = function(val)
+        Config.BoxESP = val
+    end,
 })
 
 ESPTab:CreateToggle({
     Name = "📛 Name ESP",
     CurrentValue = Config.NameESP,
     Flag = "ESP_Name",
-    Callback = function(v) Config.NameESP = v end,
+    Callback = function(val)
+        Config.NameESP = val
+    end,
 })
 
 ESPTab:CreateToggle({
     Name = "❤️ Health Bar",
     CurrentValue = Config.HealthESP,
     Flag = "ESP_Health",
-    Callback = function(v) Config.HealthESP = v end,
+    Callback = function(val)
+        Config.HealthESP = val
+    end,
 })
 
 ESPTab:CreateToggle({
     Name = "📏 Distance ESP",
     CurrentValue = Config.DistanceESP,
     Flag = "ESP_Distance",
-    Callback = function(v) Config.DistanceESP = v end,
-})
-
-ESPTab:CreateToggle({
-    Name = "🔫 Weapon/Tool ESP",
-    CurrentValue = Config.WeaponESP,
-    Flag = "ESP_Weapon",
-    Callback = function(v) Config.WeaponESP = v end,
+    Callback = function(val)
+        Config.DistanceESP = val
+    end,
 })
 
 ESPTab:CreateToggle({
     Name = "📍 Tracers",
     CurrentValue = Config.Tracers,
     Flag = "ESP_Tracers",
-    Callback = function(v) Config.Tracers = v end,
+    Callback = function(val)
+        Config.Tracers = val
+    end,
 })
 
 ESPTab:CreateToggle({
     Name = "🔴 Head Dot",
     CurrentValue = Config.HeadDot,
     Flag = "ESP_HeadDot",
-    Callback = function(v) Config.HeadDot = v end,
-})
-
--- ============================================
--- TAB 2: SETTINGS
--- ============================================
-local SettingsTab = Window:CreateTab("⚙️ Settings", 4483362458)
-
-local FilterSection = SettingsTab:CreateSection("Filters")
-
-SettingsTab:CreateToggle({
-    Name = "🤝 Team Check",
-    CurrentValue = Config.TeamCheck,
-    Flag = "SET_TeamCheck",
-    Callback = function(v) Config.TeamCheck = v end,
-})
-
--- Distance slider
-local DistSection = SettingsTab:CreateSection("Distance")
-
-SettingsTab:CreateSlider({
-    Name = "📡 Max Distance (studs)",
-    Range = {100, 5000},
-    Increment = 100,
-    Suffix = " studs",
-    CurrentValue = Config.MaxDistance,
-    Flag = "SET_MaxDist",
-    Callback = function(v) Config.MaxDistance = v end,
-})
-
--- Thickness settings
-local ThickSection = SettingsTab:CreateSection("Thickness")
-
-SettingsTab:CreateSlider({
-    Name = "🦴 Skeleton Thickness",
-    Range = {0.5, 4},
-    Increment = 0.5,
-    Suffix = "px",
-    CurrentValue = Config.SkeletonThickness,
-    Flag = "SET_SkelThick",
-    Callback = function(v) Config.SkeletonThickness = v end,
-})
-
-SettingsTab:CreateSlider({
-    Name = "📦 Box Thickness",
-    Range = {0.5, 4},
-    Increment = 0.5,
-    Suffix = "px",
-    CurrentValue = Config.BoxThickness,
-    Flag = "SET_BoxThick",
-    Callback = function(v) Config.BoxThickness = v end,
-})
-
-SettingsTab:CreateSlider({
-    Name = "📍 Tracer Thickness",
-    Range = {0.5, 4},
-    Increment = 0.5,
-    Suffix = "px",
-    CurrentValue = Config.TracerThickness,
-    Flag = "SET_TracerThick",
-    Callback = function(v) Config.TracerThickness = v end,
-})
-
-SettingsTab:CreateSlider({
-    Name = "🔴 Head Dot Size",
-    Range = {1, 8},
-    Increment = 1,
-    Suffix = "px",
-    CurrentValue = Config.HeadDotRadius,
-    Flag = "SET_HeadDotSize",
-    Callback = function(v) Config.HeadDotRadius = v end,
-})
-
-SettingsTab:CreateSlider({
-    Name = "📝 Text Size",
-    Range = {10, 20},
-    Increment = 1,
-    Suffix = "pt",
-    CurrentValue = Config.TextSize,
-    Flag = "SET_TextSize",
-    Callback = function(v) Config.TextSize = v end,
-})
-
--- Tracer origin
-local TracerSection = SettingsTab:CreateSection("Tracer Origin")
-
-SettingsTab:CreateDropdown({
-    Name = "📍 Tracer Start Point",
-    Options = {"Bottom", "Center", "Mouse"},
-    CurrentOption = {Config.TracerOrigin},
-    MultipleOptions = false,
-    Flag = "SET_TracerOrigin",
-    Callback = function(v)
-        Config.TracerOrigin = v[1] or v
+    Callback = function(val)
+        Config.HeadDot = val
     end,
 })
 
--- ============================================
+ESPTab:CreateSection("Filter")
+
+ESPTab:CreateToggle({
+    Name = "🤝 Team Check (Hide Teammates)",
+    CurrentValue = Config.TeamCheck,
+    Flag = "ESP_TeamCheck",
+    Callback = function(val)
+        Config.TeamCheck = val
+    end,
+})
+
+-- ==============================
+-- TAB 2: SETTINGS
+-- ==============================
+local SetTab = Window:CreateTab("⚙️ Settings", 4483362458)
+
+SetTab:CreateSection("Jarak")
+
+SetTab:CreateSlider({
+    Name = "📡 Max Distance",
+    Range = {100, 5000},
+    Increment = 50,
+    Suffix = " studs",
+    CurrentValue = Config.MaxDistance,
+    Flag = "SET_MaxDist",
+    Callback = function(val)
+        Config.MaxDistance = val
+    end,
+})
+
+SetTab:CreateSection("Ketebalan Garis")
+
+SetTab:CreateSlider({
+    Name = "🦴 Skeleton Thickness",
+    Range = {0.5, 4},
+    Increment = 0.5,
+    Suffix = " px",
+    CurrentValue = Config.SkeletonThickness,
+    Flag = "SET_SkelThick",
+    Callback = function(val)
+        Config.SkeletonThickness = val
+    end,
+})
+
+SetTab:CreateSlider({
+    Name = "📦 Box Thickness",
+    Range = {0.5, 4},
+    Increment = 0.5,
+    Suffix = " px",
+    CurrentValue = Config.BoxThickness,
+    Flag = "SET_BoxThick",
+    Callback = function(val)
+        Config.BoxThickness = val
+    end,
+})
+
+SetTab:CreateSlider({
+    Name = "📍 Tracer Thickness",
+    Range = {0.5, 4},
+    Increment = 0.5,
+    Suffix = " px",
+    CurrentValue = Config.TracerThickness,
+    Flag = "SET_TracerThick",
+    Callback = function(val)
+        Config.TracerThickness = val
+    end,
+})
+
+SetTab:CreateSection("Ukuran")
+
+SetTab:CreateSlider({
+    Name = "🔴 Head Dot Size",
+    Range = {1, 8},
+    Increment = 1,
+    Suffix = " px",
+    CurrentValue = Config.HeadDotRadius,
+    Flag = "SET_HeadDot",
+    Callback = function(val)
+        Config.HeadDotRadius = val
+    end,
+})
+
+SetTab:CreateSlider({
+    Name = "📝 Text Size",
+    Range = {10, 22},
+    Increment = 1,
+    Suffix = " pt",
+    CurrentValue = Config.TextSize,
+    Flag = "SET_TextSize",
+    Callback = function(val)
+        Config.TextSize = val
+    end,
+})
+
+-- ==============================
 -- TAB 3: COLORS
--- ============================================
-local ColorTab = Window:CreateTab("🎨 Colors", 4483362458)
+-- ==============================
+local ColTab = Window:CreateTab("🎨 Colors", 4483362458)
 
-local ColorSection = ColorTab:CreateSection("ESP Colors")
+ColTab:CreateSection("Player Colors")
 
-ColorTab:CreateColorPicker({
+ColTab:CreateColorPicker({
     Name = "🔴 Enemy Color",
     Color = Config.EnemyColor,
     Flag = "COL_Enemy",
-    Callback = function(v) Config.EnemyColor = v end,
+    Callback = function(val)
+        Config.EnemyColor = val
+    end,
 })
 
-ColorTab:CreateColorPicker({
+ColTab:CreateColorPicker({
     Name = "🟢 Team Color",
     Color = Config.TeamColor,
     Flag = "COL_Team",
-    Callback = function(v) Config.TeamColor = v end,
+    Callback = function(val)
+        Config.TeamColor = val
+    end,
 })
 
-ColorTab:CreateColorPicker({
+ColTab:CreateSection("ESP Element Colors")
+
+ColTab:CreateColorPicker({
     Name = "🦴 Skeleton Color",
     Color = Config.SkeletonColor,
     Flag = "COL_Skeleton",
-    Callback = function(v) Config.SkeletonColor = v end,
+    Callback = function(val)
+        Config.SkeletonColor = val
+    end,
 })
 
-ColorTab:CreateColorPicker({
+ColTab:CreateColorPicker({
     Name = "📦 Box Color",
     Color = Config.BoxColor,
     Flag = "COL_Box",
-    Callback = function(v) Config.BoxColor = v end,
+    Callback = function(val)
+        Config.BoxColor = val
+    end,
 })
 
-ColorTab:CreateColorPicker({
+ColTab:CreateColorPicker({
     Name = "📍 Tracer Color",
     Color = Config.TracerColor,
     Flag = "COL_Tracer",
-    Callback = function(v) Config.TracerColor = v end,
+    Callback = function(val)
+        Config.TracerColor = val
+    end,
 })
 
-local HealthColorSection = ColorTab:CreateSection("Health Bar Colors")
+ColTab:CreateSection("Health Bar Colors")
 
-ColorTab:CreateColorPicker({
-    Name = "💚 Health High",
+ColTab:CreateColorPicker({
+    Name = "💚 HP Full Color",
     Color = Config.HealthHighColor,
-    Flag = "COL_HealthHigh",
-    Callback = function(v) Config.HealthHighColor = v end,
+    Flag = "COL_HPHigh",
+    Callback = function(val)
+        Config.HealthHighColor = val
+    end,
 })
 
-ColorTab:CreateColorPicker({
-    Name = "💔 Health Low",
+ColTab:CreateColorPicker({
+    Name = "💔 HP Low Color",
     Color = Config.HealthLowColor,
-    Flag = "COL_HealthLow",
-    Callback = function(v) Config.HealthLowColor = v end,
+    Flag = "COL_HPLow",
+    Callback = function(val)
+        Config.HealthLowColor = val
+    end,
 })
 
--- ============================================
--- TAB 4: INFO & DESTROY
--- ============================================
+-- ==============================
+-- TAB 4: INFO
+-- ==============================
 local InfoTab = Window:CreateTab("ℹ️ Info", 4483362458)
 
-local InfoSection = InfoTab:CreateSection("Nexus Hub v3.0")
+InfoTab:CreateSection("About")
 
 InfoTab:CreateParagraph({
-    Title = "⚡ Nexus Hub",
-    Content = "ESP Script for Operation One & Universal Games\n\nFeatures:\n• Skeleton ESP (R6 & R15)\n• Box ESP + Corner Box\n• Name, Health, Distance\n• Weapon/Tool ESP\n• Tracers (3 modes)\n• Head Dot\n• Full Color Customization\n• Config Save/Load"
+    Title = "⚡ NEXUS HUB v2.0",
+    Content = "ESP Script untuk Operation One & Universal\n\n"
+        .. "✅ Skeleton ESP (R6 & R15 Support)\n"
+        .. "✅ Box ESP dengan akurasi tinggi\n"
+        .. "✅ Name + Distance ESP\n"
+        .. "✅ Health Bar dengan gradien warna\n"
+        .. "✅ Tracers dari bawah layar\n"
+        .. "✅ Head Dot (auto scale)\n"
+        .. "✅ Team Check filter\n"
+        .. "✅ Full color customization\n"
+        .. "✅ Config auto save/load\n"
+        .. "✅ Mobile & PC support",
 })
 
-InfoTab:CreateParagraph({
-    Title = "📱 Controls",
-    Content = "• Mobile: Tap tombol di kiri atas\n• PC: Klik tombol atau keybind Rayfield\n• Semua setting otomatis tersimpan"
-})
+InfoTab:CreateSection("Player Info")
 
-local PlayerSection = InfoTab:CreateSection("Player Info")
+local gameName = "Unknown"
+pcall(function()
+    gameName = MarketplaceService:GetProductInfo(game.PlaceId).Name
+end)
 
-InfoTab:CreateLabel("Player: " .. LocalPlayer.DisplayName)
-InfoTab:CreateLabel("Game: " .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name)
-InfoTab:CreateLabel("Players: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers)
+InfoTab:CreateLabel("👤 " .. LocalPlayer.DisplayName .. " (@" .. LocalPlayer.Name .. ")")
+InfoTab:CreateLabel("🎮 " .. gameName)
+InfoTab:CreateLabel("👥 " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers .. " players")
 
-local DangerSection = InfoTab:CreateSection("⚠️ Danger Zone")
+InfoTab:CreateSection("⚠️ Danger Zone")
 
 InfoTab:CreateButton({
     Name = "🗑️ DESTROY NEXUS HUB",
     Callback = function()
-        -- Cleanup ESP
-        if RenderConn then RenderConn:Disconnect() end
-        for plr in pairs(ESPCache) do RemoveESP(plr) end
+        Rayfield:Notify({
+            Title = "⚡ Nexus Hub",
+            Content = "Destroying in 2 seconds...",
+            Duration = 2,
+        })
 
-        -- Cleanup globals
+        task.wait(2)
+
+        -- Disconnect render
+        if RenderConn then
+            RenderConn:Disconnect()
+        end
+
+        -- Remove all ESP drawings
+        for plr in pairs(ESPCache) do
+            RemoveESP(plr)
+        end
+
+        -- Clean globals
         _G.NexusLoaded = false
         _G.NexusCache = nil
         _G.NexusRender = nil
@@ -824,26 +973,28 @@ InfoTab:CreateButton({
         -- Destroy Rayfield
         Rayfield:Destroy()
 
-        print("[Nexus Hub] Destroyed successfully!")
+        print("[Nexus Hub] Destroyed!")
     end,
 })
 
 -- ============================================
--- DONE
+-- STARTUP NOTIFICATION
 -- ============================================
-print("╔══════════════════════════════════════╗")
-print("║   ⚡ NEXUS HUB v3.0 LOADED          ║")
-print("║   📦 Rayfield UI Edition             ║")
-print("╠══════════════════════════════════════╣")
-print("║   👁 ESP Tab    : Toggle fitur ESP   ║")
-print("║   ⚙️ Settings   : Jarak, tebal, dll  ║")
-print("║   🎨 Colors    : Kustomisasi warna  ║")
-print("║   ℹ️ Info       : Info & Destroy     ║")
-print("╚══════════════════════════════════════╝")
-
 Rayfield:Notify({
-    Title = "⚡ Nexus Hub v3.0",
-    Content = "Script loaded! Buka menu untuk setting ESP.",
+    Title = "⚡ Nexus Hub v2.0 Loaded!",
+    Content = IsMobile
+        and "Tap tombol di kiri atas untuk menu"
+        or "Klik tombol atau gunakan keybind Rayfield",
     Duration = 5,
     Image = 4483362458,
 })
+
+print("╔════════════════════════════════════╗")
+print("║   ⚡ NEXUS HUB v2.0 LOADED        ║")
+print("║   🖥️ GUI: Rayfield UI              ║")
+print("╠════════════════════════════════════╣")
+print("║   👁 ESP     → Toggle fitur        ║")
+print("║   ⚙️ Settings → Jarak, tebal, size ║")
+print("║   🎨 Colors  → Ubah warna         ║")
+print("║   ℹ️ Info    → Info & Destroy      ║")
+print("╚════════════════════════════════════╝")
