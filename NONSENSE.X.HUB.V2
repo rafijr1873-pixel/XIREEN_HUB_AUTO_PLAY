@@ -5,14 +5,19 @@
  ██║╚██╗██║██║   ██║██║╚██╗██║╚════██║██╔══╝  ██║╚██╗██║╚════██║██╔══╝  
  ██║ ╚████║╚██████╔╝██║ ╚████║███████║███████╗██║ ╚████║███████║███████╗
  ╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚══════╝╚═╝  ╚═══╝╚══════╝╚══════╝
-              ██╗  ██╗██╗   ██╗██████╗     ██╗   ██╗██████╗    ██████╗ 
-              ██║  ██║██║   ██║██╔══██╗    ██║   ██║╚════██╗  ██╔═████╗
-              ███████║██║   ██║██████╔╝    ██║   ██║ █████╔╝  ██║██╔██║
-              ██╔══██║██║   ██║██╔══██╗    ╚██╗ ██╔╝██╔═══╝   ████╔╝██║
-              ██║  ██║╚██████╔╝██████╔╝     ╚████╔╝ ███████╗  ╚██████╔╝
-              ╚═╝  ╚═╝ ╚═════╝ ╚═════╝      ╚═══╝  ╚══════╝   ╚═════╝ 
-     ✦ Nonsense Hub v2.0 - Splash + Full GUI - All Features Working ✦
+     ✦ Nonsense Hub v2.0 - Mountain Theme + FlyGuiV3 ✦
 ]=]
+
+-- ╔══════════════════════════════════════════════════════════════╗
+-- ║    ⚙️ CONFIGURATION - GANTI WALLPAPER ID DI SINI           ║
+-- ╠══════════════════════════════════════════════════════════════╣
+-- ║  1. Upload gambar gunung ke Roblox Creator Dashboard        ║
+-- ║  2. Copy Asset ID (contoh: 12345678)                       ║
+-- ║  3. Ganti angka di bawah dengan ID kamu                    ║
+-- ╚══════════════════════════════════════════════════════════════╝
+
+local WALLPAPER_ID = "rbxassetid://6034287594" -- << GANTI DENGAN ID GAMBAR GUNUNG KAMU
+local FLY_SCRIPT_URL = "https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"
 
 -- ╔══════════════════════════════════════════════════════════════╗
 -- ║                        SERVICES                             ║
@@ -23,7 +28,6 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
-local StarterGui = game:GetService("StarterGui")
 local TeleportService = game:GetService("TeleportService")
 
 local LocalPlayer = Players.LocalPlayer
@@ -35,7 +39,7 @@ local tweenFast = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirecti
 local tweenSmooth = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local tweenBounce = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
--- Cleanup old
+-- Cleanup old GUI
 for _, g in pairs(LocalPlayer.PlayerGui:GetChildren()) do
     if g.Name == "NonsenseHub" or g.Name == "NonsenseSplash" then
         g:Destroy()
@@ -43,7 +47,7 @@ for _, g in pairs(LocalPlayer.PlayerGui:GetChildren()) do
 end
 
 -- ╔══════════════════════════════════════════════════════════════╗
--- ║              PART 1: SPLASH / THUMBNAIL SCREEN              ║
+-- ║         ████  PART 1: SPLASH SCREEN WITH WALLPAPER  ████    ║
 -- ╚══════════════════════════════════════════════════════════════╝
 
 local splashGui = Instance.new("ScreenGui")
@@ -54,132 +58,128 @@ splashGui.IgnoreGuiInset = true
 splashGui.DisplayOrder = 999
 splashGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- ══════════════════════════════════════
--- Background
--- ══════════════════════════════════════
-local splashBG = Instance.new("Frame", splashGui)
-splashBG.Name = "BG"
-splashBG.BackgroundColor3 = Color3.fromRGB(8, 8, 18)
+-- ═══════════════════════════════════════
+-- Full Screen Wallpaper Background
+-- ═══════════════════════════════════════
+local splashBG = Instance.new("ImageLabel", splashGui)
+splashBG.Name = "WallpaperBG"
+splashBG.BackgroundColor3 = Color3.fromRGB(15, 30, 55)
 splashBG.BorderSizePixel = 0
 splashBG.Size = UDim2.new(1, 0, 1, 0)
+splashBG.Image = WALLPAPER_ID
+splashBG.ScaleType = Enum.ScaleType.Crop
+splashBG.ImageTransparency = 0
 splashBG.ZIndex = 1
 
-local splashBGGrad = Instance.new("UIGradient", splashBG)
-splashBGGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(5, 5, 20)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(12, 12, 35)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 15))
-})
-splashBGGrad.Rotation = 135
+-- Dark overlay on wallpaper
+local splashOverlay = Instance.new("Frame", splashBG)
+splashOverlay.Name = "DarkOverlay"
+splashOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+splashOverlay.BackgroundTransparency = 0.35
+splashOverlay.BorderSizePixel = 0
+splashOverlay.Size = UDim2.new(1, 0, 1, 0)
+splashOverlay.ZIndex = 2
 
--- ══════════════════════════════════════
--- Floating Particles
--- ══════════════════════════════════════
-local particleHolder = Instance.new("Frame", splashBG)
+-- Gradient overlay (top lighter → bottom darker)
+local overlayGrad = Instance.new("UIGradient", splashOverlay)
+overlayGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 40, 80)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 10, 25))
+})
+overlayGrad.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0, 0.6),
+    NumberSequenceKeypoint.new(0.5, 0.3),
+    NumberSequenceKeypoint.new(1, 0.1)
+})
+overlayGrad.Rotation = 180
+
+-- ═══════════════════════════════════════
+-- Floating Particles over wallpaper
+-- ═══════════════════════════════════════
+local particleHolder = Instance.new("Frame", splashGui)
 particleHolder.BackgroundTransparency = 1
 particleHolder.Size = UDim2.new(1, 0, 1, 0)
-particleHolder.ZIndex = 2
+particleHolder.ZIndex = 3
 particleHolder.ClipsDescendants = true
 
--- Grid dots
-for i = 1, 50 do
+for i = 1, 40 do
     local dot = Instance.new("Frame", particleHolder)
-    dot.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
-    dot.BackgroundTransparency = math.random(75, 95) / 100
+    dot.BackgroundColor3 = Color3.fromRGB(180, 210, 255)
+    dot.BackgroundTransparency = math.random(70, 92) / 100
     dot.BorderSizePixel = 0
-    local s = math.random(2, 5)
+    local s = math.random(2, 6)
     dot.Size = UDim2.new(0, s, 0, s)
     dot.Position = UDim2.new(math.random(0, 100)/100, 0, math.random(0, 100)/100, 0)
-    dot.ZIndex = 2
+    dot.ZIndex = 3
     Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
 end
 
--- Rising particles
-for i = 1, 20 do
+-- Rising mist particles
+for i = 1, 15 do
     local p = Instance.new("Frame", particleHolder)
-    p.BackgroundColor3 = i % 3 == 0 and Color3.fromRGB(160, 80, 255)
-        or i % 2 == 0 and Color3.fromRGB(80, 200, 255)
-        or Color3.fromRGB(60, 130, 255)
-    p.BackgroundTransparency = math.random(50, 80) / 100
+    p.BackgroundColor3 = Color3.fromRGB(180, 220, 255)
+    p.BackgroundTransparency = math.random(60, 85) / 100
     p.BorderSizePixel = 0
-    local sz = math.random(3, 7)
+    local sz = math.random(4, 10)
     p.Size = UDim2.new(0, sz, 0, sz)
     local sX = math.random(0, 100) / 100
     p.Position = UDim2.new(sX, 0, 1.1, 0)
-    p.ZIndex = 2
+    p.ZIndex = 3
     Instance.new("UICorner", p).CornerRadius = UDim.new(1, 0)
 
     task.spawn(function()
-        task.wait(math.random(0, 25) / 10)
+        task.wait(math.random(0, 30) / 10)
         while splashGui.Parent do
             p.Position = UDim2.new(sX + math.random(-5, 5)/100, 0, 1.1, 0)
-            p.BackgroundTransparency = 0.7
-            TweenService:Create(p, TweenInfo.new(math.random(5, 9), Enum.EasingStyle.Linear), {
-                Position = UDim2.new(sX + math.random(-8, 8)/100, 0, -0.1, 0),
+            p.BackgroundTransparency = 0.6
+            TweenService:Create(p, TweenInfo.new(math.random(6, 12), Enum.EasingStyle.Linear), {
+                Position = UDim2.new(sX + math.random(-10, 10)/100, 0, -0.1, 0),
                 BackgroundTransparency = 1
             }):Play()
-            task.wait(math.random(5, 9))
+            task.wait(math.random(6, 12))
         end
     end)
 end
 
--- ══════════════════════════════════════
--- Glow Orbs
--- ══════════════════════════════════════
-local function makeGlowOrb(px, py, col, sz)
-    local orb = Instance.new("ImageLabel", splashBG)
-    orb.BackgroundTransparency = 1
-    orb.Position = UDim2.new(px, -sz/2, py, -sz/2)
-    orb.Size = UDim2.new(0, sz, 0, sz)
-    orb.Image = "rbxassetid://5554236805"
-    orb.ImageColor3 = col
-    orb.ImageTransparency = 0.65
-    orb.ZIndex = 2
-    return orb
-end
-
-local orbB = makeGlowOrb(0.2, 0.35, Color3.fromRGB(30, 80, 255), 500)
-local orbP = makeGlowOrb(0.8, 0.6, Color3.fromRGB(120, 40, 200), 400)
-local orbC = makeGlowOrb(0.5, 0.85, Color3.fromRGB(0, 180, 255), 350)
-
--- Orb breathing
-task.spawn(function()
-    while splashGui.Parent do
-        local t = tick()
-        TweenService:Create(orbB, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            ImageTransparency = 0.55 + math.sin(t) * 0.15
-        }):Play()
-        TweenService:Create(orbP, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            ImageTransparency = 0.6 + math.cos(t * 0.8) * 0.15
-        }):Play()
-        task.wait(3)
-    end
-end)
-
--- ══════════════════════════════════════
--- Center Card
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
+-- Center Card (Glass Effect)
+-- ═══════════════════════════════════════
 local splashCard = Instance.new("Frame", splashGui)
 splashCard.Name = "Card"
-splashCard.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
-splashCard.BackgroundTransparency = 0.15
+splashCard.BackgroundColor3 = Color3.fromRGB(10, 20, 40)
+splashCard.BackgroundTransparency = 0.25
 splashCard.BorderSizePixel = 0
-splashCard.Size = UDim2.new(0, 520, 0, 340)
-splashCard.Position = UDim2.new(0.5, -260, 0.5, -170)
+splashCard.Size = UDim2.new(0, 520, 0, 350)
+splashCard.Position = UDim2.new(0.5, -260, 0.5, -175)
 splashCard.ZIndex = 10
 
 Instance.new("UICorner", splashCard).CornerRadius = UDim.new(0, 18)
 
-local splashCardStroke = Instance.new("UIStroke", splashCard)
-splashCardStroke.Color = Color3.fromRGB(70, 130, 255)
-splashCardStroke.Thickness = 2
-splashCardStroke.Transparency = 0.3
+local cardStroke = Instance.new("UIStroke", splashCard)
+cardStroke.Color = Color3.fromRGB(100, 170, 240)
+cardStroke.Thickness = 1.5
+cardStroke.Transparency = 0.3
 
-Instance.new("UIGradient", splashCard).Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 45)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(18, 18, 35)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 12, 25))
+-- Glass gradient
+local cardGrad = Instance.new("UIGradient", splashCard)
+cardGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 40, 70)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(10, 20, 45)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 12, 30))
 })
+cardGrad.Rotation = 160
+
+-- Card wallpaper peek (subtle background image inside card)
+local cardBGImage = Instance.new("ImageLabel", splashCard)
+cardBGImage.BackgroundTransparency = 1
+cardBGImage.Size = UDim2.new(1, 0, 1, 0)
+cardBGImage.Image = WALLPAPER_ID
+cardBGImage.ImageTransparency = 0.85
+cardBGImage.ScaleType = Enum.ScaleType.Crop
+cardBGImage.ZIndex = 10
+
+Instance.new("UICorner", cardBGImage).CornerRadius = UDim.new(0, 18)
 
 -- Card shadow
 local cShadow = Instance.new("ImageLabel", splashCard)
@@ -188,97 +188,110 @@ cShadow.Position = UDim2.new(0, -25, 0, -25)
 cShadow.Size = UDim2.new(1, 50, 1, 50)
 cShadow.ZIndex = 9
 cShadow.Image = "rbxassetid://5554236805"
-cShadow.ImageColor3 = Color3.fromRGB(30, 60, 180)
-cShadow.ImageTransparency = 0.75
+cShadow.ImageColor3 = Color3.fromRGB(20, 50, 120)
+cShadow.ImageTransparency = 0.65
 cShadow.ScaleType = Enum.ScaleType.Slice
 cShadow.SliceCenter = Rect.new(23, 23, 277, 277)
 
--- Corner decorations
-local function cornerDeco(px, py, sx, sy, col)
+-- Corner accents (mountain blue theme)
+local function cornerLine(px, py, sx, sy, col)
     local c = Instance.new("Frame", splashCard)
     c.BackgroundColor3 = col
+    c.BackgroundTransparency = 0.3
     c.BorderSizePixel = 0
     c.Size = UDim2.new(0, sx, 0, sy)
     c.Position = UDim2.new(px, 0, py, 0)
-    c.ZIndex = 15
+    c.ZIndex = 16
     return c
 end
-cornerDeco(0, 0, 40, 2, Color3.fromRGB(60, 120, 255))
-cornerDeco(0, 0, 2, 40, Color3.fromRGB(60, 120, 255))
-cornerDeco(1, 1, 40, 2, Color3.fromRGB(140, 70, 255)).Position = UDim2.new(1, -40, 1, -2)
-cornerDeco(1, 1, 2, 40, Color3.fromRGB(140, 70, 255)).Position = UDim2.new(1, -2, 1, -40)
+cornerLine(0, 0, 50, 2, Color3.fromRGB(100, 180, 255))
+cornerLine(0, 0, 2, 50, Color3.fromRGB(100, 180, 255))
+cornerLine(1, 1, 50, 2, Color3.fromRGB(80, 140, 220)).Position = UDim2.new(1, -50, 1, -2)
+cornerLine(1, 1, 2, 50, Color3.fromRGB(80, 140, 220)).Position = UDim2.new(1, -2, 1, -50)
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- Logo
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local logoCont = Instance.new("Frame", splashCard)
 logoCont.BackgroundTransparency = 1
 logoCont.Size = UDim2.new(0, 90, 0, 90)
-logoCont.Position = UDim2.new(0.5, -45, 0, 25)
-logoCont.ZIndex = 12
+logoCont.Position = UDim2.new(0.5, -45, 0, 22)
+logoCont.ZIndex = 14
 
+-- Outer glow ring
 local outerRing = Instance.new("Frame", logoCont)
-outerRing.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
+outerRing.BackgroundColor3 = Color3.fromRGB(60, 130, 200)
 outerRing.BackgroundTransparency = 0.7
 outerRing.Size = UDim2.new(1, 0, 1, 0)
-outerRing.ZIndex = 12
+outerRing.ZIndex = 14
 Instance.new("UICorner", outerRing).CornerRadius = UDim.new(1, 0)
 
 local outerS = Instance.new("UIStroke", outerRing)
-outerS.Color = Color3.fromRGB(80, 150, 255)
+outerS.Color = Color3.fromRGB(100, 180, 255)
 outerS.Thickness = 3
-outerS.Transparency = 0.2
+outerS.Transparency = 0.15
 
 Instance.new("UIGradient", outerRing).Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 120, 255)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(150, 80, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 120, 255))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 140, 220)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 80, 200)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 140, 220))
 })
 
+-- Inner circle
 local innerRing = Instance.new("Frame", logoCont)
-innerRing.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
+innerRing.BackgroundColor3 = Color3.fromRGB(8, 15, 30)
 innerRing.Size = UDim2.new(0.72, 0, 0.72, 0)
 innerRing.Position = UDim2.new(0.14, 0, 0.14, 0)
-innerRing.ZIndex = 13
+innerRing.ZIndex = 15
 Instance.new("UICorner", innerRing).CornerRadius = UDim.new(1, 0)
 local inS = Instance.new("UIStroke", innerRing)
 inS.Color = Color3.fromRGB(100, 180, 255)
 inS.Thickness = 1.5
 inS.Transparency = 0.4
 
+-- Mountain icon inside logo (small wallpaper)
+local logoMountain = Instance.new("ImageLabel", innerRing)
+logoMountain.BackgroundTransparency = 1
+logoMountain.Size = UDim2.new(0.9, 0, 0.9, 0)
+logoMountain.Position = UDim2.new(0.05, 0, 0.05, 0)
+logoMountain.Image = WALLPAPER_ID
+logoMountain.ImageTransparency = 0.3
+logoMountain.ScaleType = Enum.ScaleType.Crop
+logoMountain.ZIndex = 15
+Instance.new("UICorner", logoMountain).CornerRadius = UDim.new(1, 0)
+
 local logoEmoji = Instance.new("TextLabel", logoCont)
 logoEmoji.BackgroundTransparency = 1
 logoEmoji.Size = UDim2.new(1, 0, 1, 0)
 logoEmoji.Font = Enum.Font.SourceSansBold
 logoEmoji.Text = "🌀"
-logoEmoji.TextSize = 40
-logoEmoji.ZIndex = 14
+logoEmoji.TextSize = 35
+logoEmoji.ZIndex = 16
 
 -- Orbit dots
 for idx = 1, 3 do
     local od = Instance.new("Frame", logoCont)
     od.Name = "Orbit_" .. idx
-    od.BackgroundColor3 = idx == 1 and Color3.fromRGB(80, 180, 255)
-        or idx == 2 and Color3.fromRGB(160, 80, 255)
-        or Color3.fromRGB(80, 255, 180)
+    od.BackgroundColor3 = idx == 1 and Color3.fromRGB(100, 200, 255)
+        or idx == 2 and Color3.fromRGB(140, 100, 240)
+        or Color3.fromRGB(80, 220, 180)
     od.BorderSizePixel = 0
-    od.Size = UDim2.new(0, 8, 0, 8)
-    od.Position = UDim2.new(0.5, -4, 0, -4)
-    od.ZIndex = 15
+    od.Size = UDim2.new(0, 7, 0, 7)
+    od.Position = UDim2.new(0.5, -3, 0, -3)
+    od.ZIndex = 17
     Instance.new("UICorner", od).CornerRadius = UDim.new(1, 0)
 end
 
--- Logo spin
+-- Logo + orbit animations
 task.spawn(function()
     while splashGui.Parent do
-        TweenService:Create(outerRing, TweenInfo.new(4, Enum.EasingStyle.Linear), {
+        TweenService:Create(outerRing, TweenInfo.new(5, Enum.EasingStyle.Linear), {
             Rotation = outerRing.Rotation + 360
         }):Play()
-        task.wait(4)
+        task.wait(5)
     end
 end)
 
--- Orbit animation
 task.spawn(function()
     local dots = {}
     for _, ch in pairs(logoCont:GetChildren()) do
@@ -286,165 +299,170 @@ task.spawn(function()
     end
     local t = 0
     while splashGui.Parent do
-        t += 0.05
+        t += 0.04
         for i, d in ipairs(dots) do
             local angle = t * 1.5 + ((i - 1) * 2 * math.pi / #dots)
-            d.Position = UDim2.new(0.5 + math.cos(angle) * 0.42, -4, 0.5 + math.sin(angle) * 0.42, -4)
+            d.Position = UDim2.new(0.5 + math.cos(angle) * 0.45, -3, 0.5 + math.sin(angle) * 0.45, -3)
         end
         task.wait(0.02)
     end
 end)
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- Title
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local splashTitle = Instance.new("TextLabel", splashCard)
 splashTitle.BackgroundTransparency = 1
-splashTitle.Position = UDim2.new(0, 0, 0, 125)
-splashTitle.Size = UDim2.new(1, 0, 0, 50)
+splashTitle.Position = UDim2.new(0, 0, 0, 120)
+splashTitle.Size = UDim2.new(1, 0, 0, 48)
 splashTitle.Font = Enum.Font.GothamBold
 splashTitle.Text = "NONSENSE HUB"
-splashTitle.TextColor3 = Color3.fromRGB(240, 245, 255)
+splashTitle.TextColor3 = Color3.fromRGB(240, 248, 255)
 splashTitle.TextSize = 38
-splashTitle.ZIndex = 12
+splashTitle.ZIndex = 14
 
 local tGrad = Instance.new("UIGradient", splashTitle)
 tGrad.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-    ColorSequenceKeypoint.new(0.4, Color3.fromRGB(150, 200, 255)),
-    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(180, 130, 255)),
+    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(140, 200, 255)),
+    ColorSequenceKeypoint.new(0.6, Color3.fromRGB(180, 150, 255)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
 })
 
--- Gradient shimmer
+-- Title shimmer
 task.spawn(function()
     while splashGui.Parent do
-        tGrad.Offset = Vector2.new(math.sin(tick() * 1.2) * 0.3, 0)
+        tGrad.Offset = Vector2.new(math.sin(tick() * 1.2) * 0.35, 0)
         task.wait(0.03)
     end
 end)
 
 local splashSub = Instance.new("TextLabel", splashCard)
 splashSub.BackgroundTransparency = 1
-splashSub.Position = UDim2.new(0, 0, 0, 173)
-splashSub.Size = UDim2.new(1, 0, 0, 22)
+splashSub.Position = UDim2.new(0, 0, 0, 168)
+splashSub.Size = UDim2.new(1, 0, 0, 20)
 splashSub.Font = Enum.Font.Gotham
-splashSub.Text = "The Ultimate Roblox Script Hub"
-splashSub.TextColor3 = Color3.fromRGB(120, 160, 220)
-splashSub.TextSize = 14
-splashSub.ZIndex = 12
+splashSub.Text = "⛰️ The Ultimate Roblox Script Hub"
+splashSub.TextColor3 = Color3.fromRGB(140, 180, 230)
+splashSub.TextSize = 13
+splashSub.ZIndex = 14
 
--- Version badge
+-- Version
 local vBadge = Instance.new("Frame", splashCard)
-vBadge.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
-vBadge.BackgroundTransparency = 0.7
+vBadge.BackgroundColor3 = Color3.fromRGB(60, 130, 220)
+vBadge.BackgroundTransparency = 0.65
 vBadge.BorderSizePixel = 0
-vBadge.Position = UDim2.new(0.5, -30, 0, 200)
+vBadge.Position = UDim2.new(0.5, -30, 0, 196)
 vBadge.Size = UDim2.new(0, 60, 0, 22)
-vBadge.ZIndex = 12
+vBadge.ZIndex = 14
 Instance.new("UICorner", vBadge).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", vBadge).Color = Color3.fromRGB(80, 150, 255)
+local vBS = Instance.new("UIStroke", vBadge)
+vBS.Color = Color3.fromRGB(100, 170, 255)
+vBS.Transparency = 0.4
 
 local vText = Instance.new("TextLabel", vBadge)
 vText.BackgroundTransparency = 1
 vText.Size = UDim2.new(1, 0, 1, 0)
 vText.Font = Enum.Font.GothamBold
 vText.Text = "v2.0"
-vText.TextColor3 = Color3.fromRGB(180, 215, 255)
+vText.TextColor3 = Color3.fromRGB(200, 225, 255)
 vText.TextSize = 11
-vText.ZIndex = 13
+vText.ZIndex = 15
 
--- ══════════════════════════════════════
--- Feature Badges Row
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
+-- Feature Badges
+-- ═══════════════════════════════════════
 local badgeCont = Instance.new("Frame", splashCard)
 badgeCont.BackgroundTransparency = 1
-badgeCont.Position = UDim2.new(0, 0, 0, 235)
+badgeCont.Position = UDim2.new(0, 0, 0, 228)
 badgeCont.Size = UDim2.new(1, 0, 0, 28)
-badgeCont.ZIndex = 12
+badgeCont.ZIndex = 14
 
 local bLayout = Instance.new("UIListLayout", badgeCont)
 bLayout.FillDirection = Enum.FillDirection.Horizontal
 bLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-bLayout.Padding = UDim.new(0, 10)
+bLayout.Padding = UDim.new(0, 8)
 
-local badges = {
-    {i = "⚡", t = "20+ Features", c = Color3.fromRGB(255, 180, 50)},
-    {i = "🛡️", t = "7 Tabs", c = Color3.fromRGB(80, 200, 120)},
-    {i = "🎯", t = "Working", c = Color3.fromRGB(255, 80, 80)},
-    {i = "🔄", t = "Auto Update", c = Color3.fromRGB(80, 160, 255)},
+local badgesData = {
+    {i = "⚡", t = "20+ Features", c = Color3.fromRGB(255, 190, 60)},
+    {i = "🛡️", t = "7 Tabs", c = Color3.fromRGB(80, 200, 130)},
+    {i = "🕊️", t = "FlyGuiV3", c = Color3.fromRGB(100, 180, 255)},
+    {i = "🎯", t = "Working", c = Color3.fromRGB(255, 90, 90)},
 }
 
-for idx, bd in ipairs(badges) do
+for idx, bd in ipairs(badgesData) do
     local b = Instance.new("Frame", badgeCont)
     b.BackgroundColor3 = bd.c
-    b.BackgroundTransparency = 0.8
+    b.BackgroundTransparency = 0.78
     b.BorderSizePixel = 0
-    b.Size = UDim2.new(0, 105, 0, 26)
-    b.ZIndex = 12
+    b.Size = UDim2.new(0, 108, 0, 26)
+    b.ZIndex = 14
     b.LayoutOrder = idx
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
-    Instance.new("UIStroke", b).Color = bd.c
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
+    local bs = Instance.new("UIStroke", b)
+    bs.Color = bd.c; bs.Transparency = 0.5
 
     local bt = Instance.new("TextLabel", b)
     bt.BackgroundTransparency = 1
     bt.Size = UDim2.new(1, 0, 1, 0)
     bt.Font = Enum.Font.GothamMedium
     bt.Text = bd.i .. " " .. bd.t
-    bt.TextColor3 = Color3.fromRGB(220, 230, 245)
+    bt.TextColor3 = Color3.fromRGB(225, 235, 250)
     bt.TextSize = 10
-    bt.ZIndex = 13
+    bt.ZIndex = 15
 end
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- Loading Bar
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local loadCont = Instance.new("Frame", splashCard)
 loadCont.BackgroundTransparency = 1
-loadCont.Position = UDim2.new(0.5, -150, 0, 280)
-loadCont.Size = UDim2.new(0, 300, 0, 35)
-loadCont.ZIndex = 12
+loadCont.Position = UDim2.new(0.5, -160, 0, 275)
+loadCont.Size = UDim2.new(0, 320, 0, 35)
+loadCont.ZIndex = 14
 
 local loadText = Instance.new("TextLabel", loadCont)
 loadText.BackgroundTransparency = 1
 loadText.Size = UDim2.new(0.7, 0, 0, 16)
 loadText.Font = Enum.Font.Gotham
 loadText.Text = "Initializing..."
-loadText.TextColor3 = Color3.fromRGB(140, 160, 200)
+loadText.TextColor3 = Color3.fromRGB(150, 180, 220)
 loadText.TextSize = 11
 loadText.TextXAlignment = Enum.TextXAlignment.Left
-loadText.ZIndex = 13
+loadText.ZIndex = 15
 
 local loadPerc = Instance.new("TextLabel", loadCont)
 loadPerc.BackgroundTransparency = 1
 loadPerc.Size = UDim2.new(1, 0, 0, 16)
 loadPerc.Font = Enum.Font.GothamBold
 loadPerc.Text = "0%"
-loadPerc.TextColor3 = Color3.fromRGB(100, 170, 255)
+loadPerc.TextColor3 = Color3.fromRGB(100, 180, 255)
 loadPerc.TextSize = 11
 loadPerc.TextXAlignment = Enum.TextXAlignment.Right
-loadPerc.ZIndex = 13
+loadPerc.ZIndex = 15
 
 local loadBarBG = Instance.new("Frame", loadCont)
-loadBarBG.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+loadBarBG.BackgroundColor3 = Color3.fromRGB(15, 25, 45)
 loadBarBG.BorderSizePixel = 0
 loadBarBG.Position = UDim2.new(0, 0, 0, 20)
 loadBarBG.Size = UDim2.new(1, 0, 0, 8)
-loadBarBG.ZIndex = 12
+loadBarBG.ZIndex = 14
 Instance.new("UICorner", loadBarBG).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", loadBarBG).Color = Color3.fromRGB(40, 60, 100)
+local lbS = Instance.new("UIStroke", loadBarBG)
+lbS.Color = Color3.fromRGB(40, 70, 120)
+lbS.Transparency = 0.4
 
 local loadBarFill = Instance.new("Frame", loadBarBG)
-loadBarFill.BackgroundColor3 = Color3.fromRGB(60, 130, 255)
+loadBarFill.BackgroundColor3 = Color3.fromRGB(70, 150, 255)
 loadBarFill.BorderSizePixel = 0
 loadBarFill.Size = UDim2.new(0, 0, 1, 0)
-loadBarFill.ZIndex = 13
+loadBarFill.ZIndex = 15
 Instance.new("UICorner", loadBarFill).CornerRadius = UDim.new(1, 0)
 
 Instance.new("UIGradient", loadBarFill).Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 100, 255)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 180, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 80, 255))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 120, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 200, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 100, 255))
 })
 
 -- Bottom text
@@ -453,27 +471,25 @@ bottomTxt.BackgroundTransparency = 1
 bottomTxt.Position = UDim2.new(0, 0, 1, -22)
 bottomTxt.Size = UDim2.new(1, 0, 0, 18)
 bottomTxt.Font = Enum.Font.Gotham
-bottomTxt.Text = "Press [RightShift] to toggle • Made with ❤️"
-bottomTxt.TextColor3 = Color3.fromRGB(80, 90, 120)
+bottomTxt.Text = "Press [RightShift] to toggle • ⛰️ Mountain Edition"
+bottomTxt.TextColor3 = Color3.fromRGB(80, 110, 150)
 bottomTxt.TextSize = 10
-bottomTxt.ZIndex = 12
+bottomTxt.ZIndex = 14
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- Side Preview Cards
--- ══════════════════════════════════════
-local function makePreviewCard(px, py, icon, title, desc, col)
+-- ═══════════════════════════════════════
+local function makePreview(px, py, icon, title, desc, col)
     local card = Instance.new("Frame", splashGui)
-    card.BackgroundColor3 = Color3.fromRGB(18, 18, 30)
-    card.BackgroundTransparency = 0.3
+    card.BackgroundColor3 = Color3.fromRGB(10, 18, 35)
+    card.BackgroundTransparency = 0.25
     card.BorderSizePixel = 0
     card.Position = UDim2.new(px, 0, py, 0)
-    card.Size = UDim2.new(0, 150, 0, 70)
+    card.Size = UDim2.new(0, 150, 0, 68)
     card.ZIndex = 8
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
     local cs = Instance.new("UIStroke", card)
-    cs.Color = col
-    cs.Thickness = 1
-    cs.Transparency = 0.6
+    cs.Color = col; cs.Thickness = 1; cs.Transparency = 0.55
 
     local acc = Instance.new("Frame", card)
     acc.BackgroundColor3 = col
@@ -485,16 +501,14 @@ local function makePreviewCard(px, py, icon, title, desc, col)
     local ic = Instance.new("TextLabel", card)
     ic.BackgroundTransparency = 1
     ic.Position = UDim2.new(0, 12, 0, 8)
-    ic.Size = UDim2.new(0, 30, 0, 24)
+    ic.Size = UDim2.new(0, 28, 0, 22)
     ic.Font = Enum.Font.SourceSansBold
-    ic.Text = icon
-    ic.TextSize = 20
-    ic.ZIndex = 9
+    ic.Text = icon; ic.TextSize = 18; ic.ZIndex = 9
 
     local ti = Instance.new("TextLabel", card)
     ti.BackgroundTransparency = 1
-    ti.Position = UDim2.new(0, 42, 0, 10)
-    ti.Size = UDim2.new(1, -52, 0, 18)
+    ti.Position = UDim2.new(0, 40, 0, 10)
+    ti.Size = UDim2.new(1, -50, 0, 16)
     ti.Font = Enum.Font.GothamBold
     ti.Text = title
     ti.TextColor3 = Color3.fromRGB(220, 235, 255)
@@ -504,88 +518,91 @@ local function makePreviewCard(px, py, icon, title, desc, col)
 
     local de = Instance.new("TextLabel", card)
     de.BackgroundTransparency = 1
-    de.Position = UDim2.new(0, 12, 0, 36)
-    de.Size = UDim2.new(1, -20, 0, 28)
+    de.Position = UDim2.new(0, 12, 0, 34)
+    de.Size = UDim2.new(1, -20, 0, 26)
     de.Font = Enum.Font.Gotham
     de.Text = desc
-    de.TextColor3 = Color3.fromRGB(120, 140, 170)
+    de.TextColor3 = Color3.fromRGB(120, 150, 190)
     de.TextSize = 9
     de.TextWrapped = true
     de.TextXAlignment = Enum.TextXAlignment.Left
     de.ZIndex = 9
 
-    -- Pulse stroke
     task.spawn(function()
         while card.Parent do
-            TweenService:Create(cs, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.3}):Play()
-            task.wait(1.5)
-            TweenService:Create(cs, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.7}):Play()
-            task.wait(1.5)
+            TweenService:Create(cs, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.3}):Play()
+            task.wait(2)
+            TweenService:Create(cs, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.7}):Play()
+            task.wait(2)
         end
     end)
-
     return card
 end
 
 local sideCards = {
-    makePreviewCard(0.03, 0.2, "⚡", "Speed", "Custom walkspeed slider", Color3.fromRGB(255, 180, 50)),
-    makePreviewCard(0.05, 0.45, "🕊️", "Fly Mode", "WASD flight control", Color3.fromRGB(80, 200, 255)),
-    makePreviewCard(0.03, 0.7, "👻", "Noclip", "Walk through walls", Color3.fromRGB(160, 80, 255)),
-    makePreviewCard(0.85, 0.2, "👁️", "ESP", "See all players", Color3.fromRGB(255, 80, 80)),
-    makePreviewCard(0.83, 0.45, "☀️", "Visuals", "Fullbright & FOV", Color3.fromRGB(80, 255, 160)),
-    makePreviewCard(0.85, 0.7, "🌍", "Teleport", "Click TP & more", Color3.fromRGB(255, 120, 200)),
+    makePreview(0.03, 0.18, "⚡", "Speed", "Custom walkspeed control", Color3.fromRGB(255, 190, 60)),
+    makePreview(0.05, 0.42, "🕊️", "FlyGuiV3", "Advanced flight system", Color3.fromRGB(100, 200, 255)),
+    makePreview(0.03, 0.66, "👻", "Noclip", "Walk through walls", Color3.fromRGB(140, 100, 240)),
+    makePreview(0.85, 0.18, "👁️", "ESP", "See all players", Color3.fromRGB(255, 90, 90)),
+    makePreview(0.83, 0.42, "☀️", "Visuals", "Fullbright & FOV", Color3.fromRGB(80, 230, 160)),
+    makePreview(0.85, 0.66, "🌍", "Teleport", "Click TP & players", Color3.fromRGB(255, 130, 210)),
 }
 
 -- Watermark
 local wm = Instance.new("Frame", splashGui)
-wm.BackgroundColor3 = Color3.fromRGB(15, 15, 28)
-wm.BackgroundTransparency = 0.3
+wm.BackgroundColor3 = Color3.fromRGB(8, 15, 30)
+wm.BackgroundTransparency = 0.25
 wm.BorderSizePixel = 0
-wm.Position = UDim2.new(1, -180, 0, 10)
-wm.Size = UDim2.new(0, 170, 0, 28)
+wm.Position = UDim2.new(1, -185, 0, 10)
+wm.Size = UDim2.new(0, 175, 0, 28)
 wm.ZIndex = 20
 Instance.new("UICorner", wm).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", wm).Color = Color3.fromRGB(60, 100, 200)
+Instance.new("UIStroke", wm).Color = Color3.fromRGB(70, 130, 220)
 
 local wmT = Instance.new("TextLabel", wm)
 wmT.BackgroundTransparency = 1
 wmT.Size = UDim2.new(1, 0, 1, 0)
 wmT.Font = Enum.Font.GothamBold
 wmT.Text = "🌀 Nonsense Hub v2.0"
-wmT.TextColor3 = Color3.fromRGB(160, 190, 240)
-wmT.TextSize = 11
-wmT.ZIndex = 21
+wmT.TextColor3 = Color3.fromRGB(170, 200, 245)
+wmT.TextSize = 11; wmT.ZIndex = 21
 
-local stats = Instance.new("Frame", splashGui)
-stats.BackgroundColor3 = Color3.fromRGB(15, 15, 28)
-stats.BackgroundTransparency = 0.3
-stats.BorderSizePixel = 0
-stats.Position = UDim2.new(0, 10, 0, 10)
-stats.Size = UDim2.new(0, 200, 0, 28)
-stats.ZIndex = 20
-Instance.new("UICorner", stats).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", stats).Color = Color3.fromRGB(60, 200, 120)
+local statsBadge = Instance.new("Frame", splashGui)
+statsBadge.BackgroundColor3 = Color3.fromRGB(8, 15, 30)
+statsBadge.BackgroundTransparency = 0.25
+statsBadge.BorderSizePixel = 0
+statsBadge.Position = UDim2.new(0, 10, 0, 10)
+statsBadge.Size = UDim2.new(0, 210, 0, 28)
+statsBadge.ZIndex = 20
+Instance.new("UICorner", statsBadge).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", statsBadge).Color = Color3.fromRGB(60, 200, 130)
 
-local sT = Instance.new("TextLabel", stats)
+local sT = Instance.new("TextLabel", statsBadge)
 sT.BackgroundTransparency = 1
 sT.Size = UDim2.new(1, 0, 1, 0)
 sT.Font = Enum.Font.GothamMedium
 sT.Text = "👤 " .. LocalPlayer.DisplayName .. " • " .. #Players:GetPlayers() .. " players"
-sT.TextColor3 = Color3.fromRGB(140, 200, 160)
-sT.TextSize = 10
-sT.ZIndex = 21
+sT.TextColor3 = Color3.fromRGB(140, 210, 170)
+sT.TextSize = 10; sT.ZIndex = 21
 
--- ══════════════════════════════════════
--- Splash Entrance Animations
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
+-- Entrance Animations
+-- ═══════════════════════════════════════
 local cardScale = Instance.new("UIScale", splashCard)
 cardScale.Scale = 0
+
+-- Wallpaper zoom in effect
+splashBG.Size = UDim2.new(1.2, 0, 1.2, 0)
+splashBG.Position = UDim2.new(-0.1, 0, -0.1, 0)
+TweenService:Create(splashBG, TweenInfo.new(8, Enum.EasingStyle.Linear), {
+    Size = UDim2.new(1, 0, 1, 0),
+    Position = UDim2.new(0, 0, 0, 0)
+}):Play()
 
 task.delay(0.2, function()
     TweenService:Create(cardScale, TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
 end)
 
--- Side cards slide in
 for i, card in ipairs(sideCards) do
     local saved = card.Position
     card.Position = (i <= 3) and UDim2.new(-0.3, 0, saved.Y.Scale, 0) or UDim2.new(1.3, 0, saved.Y.Scale, 0)
@@ -595,39 +612,40 @@ for i, card in ipairs(sideCards) do
 end
 
 wm.Position = UDim2.new(1, 10, 0, 10)
-stats.Position = UDim2.new(0, -210, 0, 10)
+statsBadge.Position = UDim2.new(0, -220, 0, 10)
 task.delay(0.3, function()
-    TweenService:Create(wm, tweenSmooth, {Position = UDim2.new(1, -180, 0, 10)}):Play()
-    TweenService:Create(stats, tweenSmooth, {Position = UDim2.new(0, 10, 0, 10)}):Play()
+    TweenService:Create(wm, tweenSmooth, {Position = UDim2.new(1, -185, 0, 10)}):Play()
+    TweenService:Create(statsBadge, tweenSmooth, {Position = UDim2.new(0, 10, 0, 10)}):Play()
 end)
 
 -- Card stroke pulse
 task.spawn(function()
     while splashGui.Parent do
-        TweenService:Create(splashCardStroke, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Transparency = 0.2, Color = Color3.fromRGB(100, 160, 255)
+        TweenService:Create(cardStroke, TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Color = Color3.fromRGB(100, 180, 255), Transparency = 0.2
         }):Play()
-        task.wait(2)
-        TweenService:Create(splashCardStroke, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Transparency = 0.5, Color = Color3.fromRGB(140, 80, 255)
+        task.wait(2.5)
+        TweenService:Create(cardStroke, TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Color = Color3.fromRGB(140, 100, 230), Transparency = 0.45
         }):Play()
-        task.wait(2)
+        task.wait(2.5)
     end
 end)
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- LOADING SEQUENCE
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local loadSteps = {
     {p = 0.08, t = "Initializing core..."},
     {p = 0.18, t = "Loading services..."},
-    {p = 0.30, t = "Building UI framework..."},
-    {p = 0.42, t = "Creating tab system..."},
-    {p = 0.55, t = "Registering features..."},
-    {p = 0.68, t = "Setting up combat modules..."},
-    {p = 0.78, t = "Loading visual systems..."},
-    {p = 0.88, t = "Registering keybinds..."},
-    {p = 0.95, t = "Finalizing..."},
+    {p = 0.28, t = "Building UI framework..."},
+    {p = 0.40, t = "Creating tab system..."},
+    {p = 0.52, t = "Registering features..."},
+    {p = 0.62, t = "Loading FlyGuiV3 module..."},
+    {p = 0.72, t = "Setting up ESP system..."},
+    {p = 0.82, t = "Loading visual systems..."},
+    {p = 0.90, t = "Registering keybinds..."},
+    {p = 0.96, t = "Finalizing..."},
     {p = 1.00, t = "Ready! ✓"},
 }
 
@@ -640,54 +658,44 @@ for _, step in ipairs(loadSteps) do
     }):Play()
 
     if step.p >= 1 then
-        loadText.TextColor3 = Color3.fromRGB(80, 255, 120)
-        loadPerc.TextColor3 = Color3.fromRGB(80, 255, 120)
-        TweenService:Create(loadBarFill, tweenFast, {BackgroundColor3 = Color3.fromRGB(60, 200, 100)}):Play()
+        loadText.TextColor3 = Color3.fromRGB(80, 255, 140)
+        loadPerc.TextColor3 = Color3.fromRGB(80, 255, 140)
+        TweenService:Create(loadBarFill, tweenFast, {BackgroundColor3 = Color3.fromRGB(60, 210, 120)}):Play()
     end
 end
 
 task.wait(1.5)
 
--- ══════════════════════════════════════
--- SPLASH EXIT ANIMATION
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
+-- SPLASH EXIT
+-- ═══════════════════════════════════════
 TweenService:Create(cardScale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale = 0}):Play()
 
 for i, card in ipairs(sideCards) do
     TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
-        Position = (i <= 3)
-            and UDim2.new(-0.3, 0, card.Position.Y.Scale, 0)
+        Position = (i <= 3) and UDim2.new(-0.3, 0, card.Position.Y.Scale, 0)
             or UDim2.new(1.3, 0, card.Position.Y.Scale, 0)
     }):Play()
 end
 
 TweenService:Create(wm, tweenFast, {Position = UDim2.new(1, 10, 0, 10)}):Play()
-TweenService:Create(stats, tweenFast, {Position = UDim2.new(0, -210, 0, 10)}):Play()
-TweenService:Create(splashBG, TweenInfo.new(0.8), {BackgroundTransparency = 1}):Play()
-
-for _, ch in pairs(splashBG:GetDescendants()) do
-    if ch:IsA("Frame") then
-        pcall(function() TweenService:Create(ch, TweenInfo.new(0.6), {BackgroundTransparency = 1}):Play() end)
-    elseif ch:IsA("ImageLabel") then
-        pcall(function() TweenService:Create(ch, TweenInfo.new(0.6), {ImageTransparency = 1}):Play() end)
-    end
-end
+TweenService:Create(statsBadge, tweenFast, {Position = UDim2.new(0, -220, 0, 10)}):Play()
+TweenService:Create(splashBG, TweenInfo.new(0.8), {ImageTransparency = 1}):Play()
+TweenService:Create(splashOverlay, TweenInfo.new(0.8), {BackgroundTransparency = 1}):Play()
 
 task.wait(1)
 splashGui:Destroy()
 
 -- ╔══════════════════════════════════════════════════════════════╗
--- ║              PART 2: MAIN GUI - NONSENSE HUB                ║
+-- ║    ████  PART 2: MAIN GUI - NONSENSE HUB + WALLPAPER  ████  ║
 -- ╚══════════════════════════════════════════════════════════════╝
 
--- ══════════════════════════════════════
 -- Feature States
--- ══════════════════════════════════════
 local States = {
     speed = false, walkSpeed = 16,
     infiniteJump = false,
     noclip = false,
-    fly = false, flySpeed = 50,
+    flyLoaded = false,
     autoClick = false, clickDelay = 100,
     esp = false,
     fullbright = false,
@@ -701,7 +709,6 @@ local States = {
     antiAFK = false,
 }
 
-local flyBV, flyBG
 local espElements = {}
 local antiAFKConn = nil
 local origLighting = {}
@@ -717,34 +724,55 @@ local function getHRP()
     return c and c:FindFirstChild("HumanoidRootPart")
 end
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- Main ScreenGui
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "NonsenseHub"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.ResetOnSpawn = false
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- Main Frame
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local mainFrame = Instance.new("Frame", screenGui)
 mainFrame.Name = "MainFrame"
 mainFrame.Active = true
-mainFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 25, 45)
 mainFrame.BorderSizePixel = 0
-mainFrame.Size = UDim2.new(0, 580, 0, 380)
-mainFrame.Position = UDim2.new(0.5, -290, 0.5, -190)
+mainFrame.Size = UDim2.new(0, 600, 0, 400)
+mainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
 mainFrame.ClipsDescendants = true
 
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
+
 local mStroke = Instance.new("UIStroke", mainFrame)
-mStroke.Color = Color3.fromRGB(70, 130, 255)
+mStroke.Color = Color3.fromRGB(80, 150, 255)
 mStroke.Thickness = 1.5
-mStroke.Transparency = 0.4
+mStroke.Transparency = 0.35
 
 local mainScale = Instance.new("UIScale", mainFrame)
+
+-- ═══════════════════════════════════════
+-- Main Frame Wallpaper Background
+-- ═══════════════════════════════════════
+local mainWallpaper = Instance.new("ImageLabel", mainFrame)
+mainWallpaper.Name = "Wallpaper"
+mainWallpaper.BackgroundTransparency = 1
+mainWallpaper.Size = UDim2.new(1, 0, 1, 0)
+mainWallpaper.Image = WALLPAPER_ID
+mainWallpaper.ImageTransparency = 0.82
+mainWallpaper.ScaleType = Enum.ScaleType.Crop
+mainWallpaper.ZIndex = 0
+
+-- Dark overlay on main wallpaper
+local mainOverlay = Instance.new("Frame", mainFrame)
+mainOverlay.BackgroundColor3 = Color3.fromRGB(10, 18, 35)
+mainOverlay.BackgroundTransparency = 0.15
+mainOverlay.BorderSizePixel = 0
+mainOverlay.Size = UDim2.new(1, 0, 1, 0)
+mainOverlay.ZIndex = 1
 
 -- Shadow
 local mainShadow = Instance.new("ImageLabel", mainFrame)
@@ -758,32 +786,29 @@ mainShadow.ImageTransparency = 0.5
 mainShadow.ScaleType = Enum.ScaleType.Slice
 mainShadow.SliceCenter = Rect.new(23, 23, 277, 277)
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- Top Bar
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local topBar = Instance.new("Frame", mainFrame)
 topBar.Name = "TopBar"
-topBar.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+topBar.BackgroundColor3 = Color3.fromRGB(12, 20, 35)
+topBar.BackgroundTransparency = 0.1
 topBar.BorderSizePixel = 0
-topBar.Size = UDim2.new(1, 0, 0, 40)
+topBar.Size = UDim2.new(1, 0, 0, 42)
 topBar.ZIndex = 10
 
-Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 12)
 local topCover = Instance.new("Frame", topBar)
-topCover.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+topCover.BackgroundColor3 = Color3.fromRGB(12, 20, 35)
+topCover.BackgroundTransparency = 0.1
 topCover.BorderSizePixel = 0
-topCover.Size = UDim2.new(1, 0, 0, 12)
-topCover.Position = UDim2.new(0, 0, 1, -12)
+topCover.Size = UDim2.new(1, 0, 0, 14)
+topCover.Position = UDim2.new(0, 0, 1, -14)
 topCover.ZIndex = 10
 
-Instance.new("UIGradient", topBar).Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 45)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 26))
-})
-
--- Accent line
+-- Accent line with mountain colors
 local acLine = Instance.new("Frame", topBar)
-acLine.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
+acLine.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
 acLine.BorderSizePixel = 0
 acLine.Size = UDim2.new(1, 0, 0, 2)
 acLine.Position = UDim2.new(0, 0, 1, -2)
@@ -791,10 +816,10 @@ acLine.ZIndex = 11
 
 local acGrad = Instance.new("UIGradient", acLine)
 acGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 120, 255)),
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 130, 220)),
     ColorSequenceKeypoint.new(0.3, Color3.fromRGB(100, 200, 255)),
-    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(160, 80, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 120, 255))
+    ColorSequenceKeypoint.new(0.6, Color3.fromRGB(140, 100, 230)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 130, 220))
 })
 
 task.spawn(function()
@@ -804,15 +829,13 @@ task.spawn(function()
     end
 end)
 
--- Title icon
+-- Title icon + text
 local tIcon = Instance.new("TextLabel", topBar)
 tIcon.BackgroundTransparency = 1
 tIcon.Position = UDim2.new(0, 12, 0, 0)
 tIcon.Size = UDim2.new(0, 30, 1, 0)
 tIcon.Font = Enum.Font.SourceSansBold
-tIcon.Text = "🌀"
-tIcon.TextSize = 20
-tIcon.ZIndex = 11
+tIcon.Text = "🌀"; tIcon.TextSize = 20; tIcon.ZIndex = 11
 
 task.spawn(function()
     while screenGui.Parent do
@@ -823,162 +846,175 @@ task.spawn(function()
     end
 end)
 
--- Title text
 local tLabel = Instance.new("TextLabel", topBar)
 tLabel.BackgroundTransparency = 1
-tLabel.Position = UDim2.new(0, 38, 0, 0)
-tLabel.Size = UDim2.new(0.4, 0, 1, 0)
+tLabel.Position = UDim2.new(0, 40, 0, 0)
+tLabel.Size = UDim2.new(0.35, 0, 1, 0)
 tLabel.Font = Enum.Font.GothamBold
 tLabel.Text = "Nonsense Hub"
-tLabel.TextColor3 = Color3.fromRGB(230, 240, 255)
+tLabel.TextColor3 = Color3.fromRGB(230, 242, 255)
 tLabel.TextSize = 16
 tLabel.TextXAlignment = Enum.TextXAlignment.Left
 tLabel.ZIndex = 11
 
 local vLabel = Instance.new("TextLabel", topBar)
 vLabel.BackgroundTransparency = 1
-vLabel.Position = UDim2.new(0, 155, 0, 0)
-vLabel.Size = UDim2.new(0, 40, 1, 0)
+vLabel.Position = UDim2.new(0, 160, 0, 0)
+vLabel.Size = UDim2.new(0, 60, 1, 0)
 vLabel.Font = Enum.Font.Gotham
-vLabel.Text = "v2.0"
-vLabel.TextColor3 = Color3.fromRGB(100, 160, 255)
-vLabel.TextSize = 10
-vLabel.TextTransparency = 0.3
+vLabel.Text = "v2.0 ⛰️"
+vLabel.TextColor3 = Color3.fromRGB(100, 170, 255)
+vLabel.TextSize = 10; vLabel.TextTransparency = 0.3
 vLabel.TextXAlignment = Enum.TextXAlignment.Left
 vLabel.ZIndex = 11
 
--- Close button
+-- Close & Minimize buttons
 local closeBtn = Instance.new("TextButton", topBar)
 closeBtn.BackgroundColor3 = Color3.fromRGB(255, 55, 55)
-closeBtn.BackgroundTransparency = 0.85
+closeBtn.BackgroundTransparency = 0.82
 closeBtn.BorderSizePixel = 0
-closeBtn.Position = UDim2.new(1, -36, 0.5, -11)
+closeBtn.Position = UDim2.new(1, -38, 0.5, -11)
 closeBtn.Size = UDim2.new(0, 22, 0, 22)
 closeBtn.Font = Enum.Font.GothamBold
 closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-closeBtn.TextSize = 12
-closeBtn.ZIndex = 12
+closeBtn.TextColor3 = Color3.fromRGB(255, 110, 110)
+closeBtn.TextSize = 12; closeBtn.ZIndex = 12
 closeBtn.AutoButtonColor = false
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
 
--- Minimize button
 local minBtn = Instance.new("TextButton", topBar)
 minBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-minBtn.BackgroundTransparency = 0.85
+minBtn.BackgroundTransparency = 0.82
 minBtn.BorderSizePixel = 0
-minBtn.Position = UDim2.new(1, -64, 0.5, -11)
+minBtn.Position = UDim2.new(1, -66, 0.5, -11)
 minBtn.Size = UDim2.new(0, 22, 0, 22)
 minBtn.Font = Enum.Font.GothamBold
 minBtn.Text = "─"
-minBtn.TextColor3 = Color3.fromRGB(255, 210, 100)
-minBtn.TextSize = 14
-minBtn.ZIndex = 12
+minBtn.TextColor3 = Color3.fromRGB(255, 215, 100)
+minBtn.TextSize = 14; minBtn.ZIndex = 12
 minBtn.AutoButtonColor = false
 Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 6)
 
--- ══════════════════════════════════════
--- Sidebar
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
+-- Sidebar with wallpaper accent
+-- ═══════════════════════════════════════
 local sidebar = Instance.new("Frame", mainFrame)
-sidebar.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+sidebar.BackgroundColor3 = Color3.fromRGB(12, 20, 35)
+sidebar.BackgroundTransparency = 0.15
 sidebar.BorderSizePixel = 0
-sidebar.Size = UDim2.new(0, 135, 1, -42)
-sidebar.Position = UDim2.new(0, 0, 0, 42)
+sidebar.Size = UDim2.new(0, 140, 1, -44)
+sidebar.Position = UDim2.new(0, 0, 0, 44)
 sidebar.ZIndex = 5
 
-Instance.new("UIGradient", sidebar).Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 42)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 28))
-})
+-- Sidebar wallpaper peek
+local sideWP = Instance.new("ImageLabel", sidebar)
+sideWP.BackgroundTransparency = 1
+sideWP.Size = UDim2.new(1, 0, 1, 0)
+sideWP.Image = WALLPAPER_ID
+sideWP.ImageTransparency = 0.9
+sideWP.ScaleType = Enum.ScaleType.Crop
+sideWP.ZIndex = 5
 
 local sPad = Instance.new("UIPadding", sidebar)
 sPad.PaddingTop = UDim.new(0, 8)
 sPad.PaddingLeft = UDim.new(0, 6)
 sPad.PaddingRight = UDim.new(0, 6)
 
-local sLayout = Instance.new("UIListLayout", sidebar)
-sLayout.Padding = UDim.new(0, 4)
-sLayout.SortOrder = Enum.SortOrder.LayoutOrder
+local sLay = Instance.new("UIListLayout", sidebar)
+sLay.Padding = UDim.new(0, 4)
+sLay.SortOrder = Enum.SortOrder.LayoutOrder
 
 -- Sidebar divider
 local sLine = Instance.new("Frame", mainFrame)
-sLine.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
-sLine.BackgroundTransparency = 0.6
+sLine.BackgroundColor3 = Color3.fromRGB(80, 150, 255)
+sLine.BackgroundTransparency = 0.55
 sLine.BorderSizePixel = 0
-sLine.Size = UDim2.new(0, 1, 1, -42)
-sLine.Position = UDim2.new(0, 135, 0, 42)
+sLine.Size = UDim2.new(0, 1, 1, -44)
+sLine.Position = UDim2.new(0, 140, 0, 44)
 sLine.ZIndex = 6
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- Content Area
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local contentArea = Instance.new("Frame", mainFrame)
-contentArea.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+contentArea.BackgroundColor3 = Color3.fromRGB(18, 28, 48)
+contentArea.BackgroundTransparency = 0.2
 contentArea.BorderSizePixel = 0
-contentArea.Size = UDim2.new(1, -136, 1, -42)
-contentArea.Position = UDim2.new(0, 136, 0, 42)
+contentArea.Size = UDim2.new(1, -141, 1, -44)
+contentArea.Position = UDim2.new(0, 141, 0, 44)
 contentArea.ZIndex = 2
 contentArea.ClipsDescendants = true
 
-Instance.new("UIGradient", contentArea).Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 50)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 38))
-})
+-- Content wallpaper
+local contentWP = Instance.new("ImageLabel", contentArea)
+contentWP.BackgroundTransparency = 1
+contentWP.Size = UDim2.new(1, 0, 1, 0)
+contentWP.Image = WALLPAPER_ID
+contentWP.ImageTransparency = 0.92
+contentWP.ScaleType = Enum.ScaleType.Crop
+contentWP.ZIndex = 2
 
--- Page title
 local pageTitle = Instance.new("TextLabel", contentArea)
 pageTitle.BackgroundTransparency = 1
 pageTitle.Position = UDim2.new(0, 14, 0, 6)
 pageTitle.Size = UDim2.new(1, -28, 0, 24)
 pageTitle.Font = Enum.Font.GothamBold
 pageTitle.Text = "🏠 Main"
-pageTitle.TextColor3 = Color3.fromRGB(210, 225, 255)
+pageTitle.TextColor3 = Color3.fromRGB(210, 230, 255)
 pageTitle.TextSize = 15
 pageTitle.TextXAlignment = Enum.TextXAlignment.Left
 pageTitle.ZIndex = 4
 
 local pageSep = Instance.new("Frame", contentArea)
-pageSep.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
-pageSep.BackgroundTransparency = 0.7
+pageSep.BackgroundColor3 = Color3.fromRGB(80, 150, 255)
+pageSep.BackgroundTransparency = 0.65
 pageSep.BorderSizePixel = 0
 pageSep.Position = UDim2.new(0, 14, 0, 34)
 pageSep.Size = UDim2.new(1, -28, 0, 1)
 pageSep.ZIndex = 4
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- Notification System
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local notifY = 0
 
 local function notify(title, text, duration)
     duration = duration or 3
     local n = Instance.new("Frame", screenGui)
-    n.BackgroundColor3 = Color3.fromRGB(25, 25, 38)
+    n.BackgroundColor3 = Color3.fromRGB(12, 22, 42)
     n.BorderSizePixel = 0
-    n.Size = UDim2.new(0, 240, 0, 56)
-    n.Position = UDim2.new(1, 10, 1, -66 - notifY)
+    n.Size = UDim2.new(0, 250, 0, 58)
+    n.Position = UDim2.new(1, 10, 1, -68 - notifY)
     n.ZIndex = 50
     n.ClipsDescendants = true
-    Instance.new("UICorner", n).CornerRadius = UDim.new(0, 8)
+    Instance.new("UICorner", n).CornerRadius = UDim.new(0, 10)
     local ns = Instance.new("UIStroke", n)
-    ns.Color = Color3.fromRGB(70, 130, 255)
-    ns.Thickness = 1
-    ns.Transparency = 0.5
+    ns.Color = Color3.fromRGB(80, 150, 255)
+    ns.Thickness = 1; ns.Transparency = 0.45
+
+    -- Mini wallpaper in notification
+    local nWP = Instance.new("ImageLabel", n)
+    nWP.BackgroundTransparency = 1
+    nWP.Size = UDim2.new(1, 0, 1, 0)
+    nWP.Image = WALLPAPER_ID
+    nWP.ImageTransparency = 0.92
+    nWP.ScaleType = Enum.ScaleType.Crop
+    nWP.ZIndex = 50
+    Instance.new("UICorner", nWP).CornerRadius = UDim.new(0, 10)
 
     local nAcc = Instance.new("Frame", n)
-    nAcc.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
+    nAcc.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
     nAcc.BorderSizePixel = 0
     nAcc.Size = UDim2.new(0, 3, 1, 0)
     nAcc.ZIndex = 51
 
     local nT = Instance.new("TextLabel", n)
     nT.BackgroundTransparency = 1
-    nT.Position = UDim2.new(0, 12, 0, 4)
-    nT.Size = UDim2.new(1, -16, 0, 18)
+    nT.Position = UDim2.new(0, 12, 0, 5)
+    nT.Size = UDim2.new(1, -16, 0, 16)
     nT.Font = Enum.Font.GothamBold
     nT.Text = title
-    nT.TextColor3 = Color3.fromRGB(100, 170, 255)
+    nT.TextColor3 = Color3.fromRGB(110, 180, 255)
     nT.TextSize = 12
     nT.TextXAlignment = Enum.TextXAlignment.Left
     nT.ZIndex = 51
@@ -989,29 +1025,25 @@ local function notify(title, text, duration)
     nD.Size = UDim2.new(1, -16, 0, 30)
     nD.Font = Enum.Font.Gotham
     nD.Text = text
-    nD.TextColor3 = Color3.fromRGB(180, 195, 220)
+    nD.TextColor3 = Color3.fromRGB(180, 200, 230)
     nD.TextSize = 11
     nD.TextXAlignment = Enum.TextXAlignment.Left
     nD.TextWrapped = true
     nD.ZIndex = 51
 
     local yOff = notifY
-    notifY = notifY + 62
-
-    TweenService:Create(n, tweenSmooth, {Position = UDim2.new(1, -250, 1, -66 - yOff)}):Play()
+    notifY += 64
+    TweenService:Create(n, tweenSmooth, {Position = UDim2.new(1, -260, 1, -68 - yOff)}):Play()
 
     task.delay(duration, function()
-        TweenService:Create(n, tweenSmooth, {Position = UDim2.new(1, 10, 1, -66 - yOff)}):Play()
-        task.delay(0.5, function()
-            n:Destroy()
-            notifY = math.max(0, notifY - 62)
-        end)
+        TweenService:Create(n, tweenSmooth, {Position = UDim2.new(1, 10, 1, -68 - yOff)}):Play()
+        task.delay(0.5, function() n:Destroy(); notifY = math.max(0, notifY - 64) end)
     end)
 end
 
--- ══════════════════════════════════════
--- UI Builder Helpers
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
+-- UI Builders
+-- ═══════════════════════════════════════
 local function createPage(name)
     local page = Instance.new("ScrollingFrame", contentArea)
     page.Name = "Page_" .. name
@@ -1020,23 +1052,18 @@ local function createPage(name)
     page.Position = UDim2.new(0, 0, 0, 40)
     page.Size = UDim2.new(1, 0, 1, -40)
     page.ScrollBarThickness = 3
-    page.ScrollBarImageColor3 = Color3.fromRGB(70, 130, 255)
+    page.ScrollBarImageColor3 = Color3.fromRGB(80, 160, 255)
     page.ScrollBarImageTransparency = 0.3
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
     page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    page.Visible = false
-    page.ZIndex = 3
+    page.Visible = false; page.ZIndex = 3
 
-    local l = Instance.new("UIListLayout", page)
-    l.Padding = UDim.new(0, 5)
-    l.SortOrder = Enum.SortOrder.LayoutOrder
+    Instance.new("UIListLayout", page).Padding = UDim.new(0, 5)
+    page:FindFirstChildOfClass("UIListLayout").SortOrder = Enum.SortOrder.LayoutOrder
 
-    local p = Instance.new("UIPadding", page)
-    p.PaddingTop = UDim.new(0, 4)
-    p.PaddingBottom = UDim.new(0, 8)
-    p.PaddingLeft = UDim.new(0, 10)
-    p.PaddingRight = UDim.new(0, 12)
-
+    local pd = Instance.new("UIPadding", page)
+    pd.PaddingTop = UDim.new(0, 4); pd.PaddingBottom = UDim.new(0, 8)
+    pd.PaddingLeft = UDim.new(0, 10); pd.PaddingRight = UDim.new(0, 12)
     return page
 end
 
@@ -1046,37 +1073,33 @@ local function createSection(parent, text, order)
     lbl.Size = UDim2.new(1, 0, 0, 20)
     lbl.Font = Enum.Font.GothamBold
     lbl.Text = "  " .. text
-    lbl.TextColor3 = Color3.fromRGB(100, 170, 255)
+    lbl.TextColor3 = Color3.fromRGB(100, 180, 255)
     lbl.TextSize = 12
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.LayoutOrder = order
-    lbl.ZIndex = 4
+    lbl.LayoutOrder = order; lbl.ZIndex = 4
 
     local sep = Instance.new("Frame", parent)
-    sep.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    sep.BackgroundColor3 = Color3.fromRGB(40, 65, 100)
     sep.BorderSizePixel = 0
     sep.Size = UDim2.new(1, 0, 0, 1)
-    sep.LayoutOrder = order + 1
-    sep.ZIndex = 4
+    sep.LayoutOrder = order + 1; sep.ZIndex = 4
 end
 
 local function createToggle(parent, text, default, callback, order)
     local toggled = default or false
     local btn = Instance.new("TextButton", parent)
-    btn.Name = "T_" .. text
-    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 58)
+    btn.BackgroundColor3 = Color3.fromRGB(18, 30, 55)
+    btn.BackgroundTransparency = 0.15
     btn.BorderSizePixel = 0
     btn.Size = UDim2.new(1, 0, 0, 34)
     btn.Text = ""
     btn.AutoButtonColor = false
-    btn.LayoutOrder = order
-    btn.ZIndex = 4
+    btn.LayoutOrder = order; btn.ZIndex = 4
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 
     local stroke = Instance.new("UIStroke", btn)
-    stroke.Color = Color3.fromRGB(55, 55, 75)
-    stroke.Thickness = 1
-    stroke.Transparency = 0.4
+    stroke.Color = Color3.fromRGB(40, 65, 100)
+    stroke.Thickness = 1; stroke.Transparency = 0.35
 
     local lbl = Instance.new("TextLabel", btn)
     lbl.BackgroundTransparency = 1
@@ -1084,13 +1107,13 @@ local function createToggle(parent, text, default, callback, order)
     lbl.Size = UDim2.new(0.65, 0, 1, 0)
     lbl.Font = Enum.Font.GothamMedium
     lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(185, 200, 225)
+    lbl.TextColor3 = Color3.fromRGB(190, 210, 235)
     lbl.TextSize = 12
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.ZIndex = 5
 
     local ind = Instance.new("Frame", btn)
-    ind.BackgroundColor3 = toggled and Color3.fromRGB(50, 180, 110) or Color3.fromRGB(70, 70, 95)
+    ind.BackgroundColor3 = toggled and Color3.fromRGB(50, 180, 120) or Color3.fromRGB(40, 55, 85)
     ind.BorderSizePixel = 0
     ind.Size = UDim2.new(0, 34, 0, 17)
     ind.Position = UDim2.new(1, -46, 0.5, -8)
@@ -1107,27 +1130,24 @@ local function createToggle(parent, text, default, callback, order)
 
     local function refresh()
         if toggled then
-            TweenService:Create(ind, tweenFast, {BackgroundColor3 = Color3.fromRGB(50, 180, 110)}):Play()
+            TweenService:Create(ind, tweenFast, {BackgroundColor3 = Color3.fromRGB(50, 180, 120)}):Play()
             TweenService:Create(circle, tweenFast, {Position = UDim2.new(1, -15, 0.5, -6)}):Play()
-            TweenService:Create(stroke, tweenFast, {Color = Color3.fromRGB(50, 180, 110), Transparency = 0.3}):Play()
+            TweenService:Create(stroke, tweenFast, {Color = Color3.fromRGB(50, 180, 120), Transparency = 0.25}):Play()
         else
-            TweenService:Create(ind, tweenFast, {BackgroundColor3 = Color3.fromRGB(70, 70, 95)}):Play()
+            TweenService:Create(ind, tweenFast, {BackgroundColor3 = Color3.fromRGB(40, 55, 85)}):Play()
             TweenService:Create(circle, tweenFast, {Position = UDim2.new(0, 2, 0.5, -6)}):Play()
-            TweenService:Create(stroke, tweenFast, {Color = Color3.fromRGB(55, 55, 75), Transparency = 0.4}):Play()
+            TweenService:Create(stroke, tweenFast, {Color = Color3.fromRGB(40, 65, 100), Transparency = 0.35}):Play()
         end
     end
 
     btn.MouseButton1Click:Connect(function()
-        toggled = not toggled
-        refresh()
-        callback(toggled)
+        toggled = not toggled; refresh(); callback(toggled)
     end)
-
     btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, tweenFast, {BackgroundColor3 = Color3.fromRGB(50, 50, 72)}):Play()
+        TweenService:Create(btn, tweenFast, {BackgroundColor3 = Color3.fromRGB(25, 42, 72)}):Play()
     end)
     btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, tweenFast, {BackgroundColor3 = Color3.fromRGB(40, 40, 58)}):Play()
+        TweenService:Create(btn, tweenFast, {BackgroundColor3 = Color3.fromRGB(18, 30, 55)}):Play()
     end)
 
     if toggled then refresh(); callback(true) end
@@ -1137,13 +1157,13 @@ end
 local function createSlider(parent, text, min, max, default, callback, order)
     local value = default or min
     local container = Instance.new("Frame", parent)
-    container.BackgroundColor3 = Color3.fromRGB(40, 40, 58)
+    container.BackgroundColor3 = Color3.fromRGB(18, 30, 55)
+    container.BackgroundTransparency = 0.15
     container.BorderSizePixel = 0
     container.Size = UDim2.new(1, 0, 0, 50)
-    container.LayoutOrder = order
-    container.ZIndex = 4
+    container.LayoutOrder = order; container.ZIndex = 4
     Instance.new("UICorner", container).CornerRadius = UDim.new(0, 8)
-    Instance.new("UIStroke", container).Color = Color3.fromRGB(55, 55, 75)
+    Instance.new("UIStroke", container).Color = Color3.fromRGB(40, 65, 100)
 
     local lbl = Instance.new("TextLabel", container)
     lbl.BackgroundTransparency = 1
@@ -1151,10 +1171,8 @@ local function createSlider(parent, text, min, max, default, callback, order)
     lbl.Size = UDim2.new(0.55, 0, 0, 20)
     lbl.Font = Enum.Font.GothamMedium
     lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(185, 200, 225)
-    lbl.TextSize = 12
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.ZIndex = 5
+    lbl.TextColor3 = Color3.fromRGB(190, 210, 235)
+    lbl.TextSize = 12; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.ZIndex = 5
 
     local valLbl = Instance.new("TextLabel", container)
     valLbl.BackgroundTransparency = 1
@@ -1162,13 +1180,11 @@ local function createSlider(parent, text, min, max, default, callback, order)
     valLbl.Size = UDim2.new(0.35, 0, 0, 20)
     valLbl.Font = Enum.Font.GothamBold
     valLbl.Text = tostring(value)
-    valLbl.TextColor3 = Color3.fromRGB(100, 170, 255)
-    valLbl.TextSize = 12
-    valLbl.TextXAlignment = Enum.TextXAlignment.Right
-    valLbl.ZIndex = 5
+    valLbl.TextColor3 = Color3.fromRGB(100, 180, 255)
+    valLbl.TextSize = 12; valLbl.TextXAlignment = Enum.TextXAlignment.Right; valLbl.ZIndex = 5
 
     local bg = Instance.new("Frame", container)
-    bg.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
+    bg.BackgroundColor3 = Color3.fromRGB(12, 20, 38)
     bg.BorderSizePixel = 0
     bg.Position = UDim2.new(0, 12, 0, 28)
     bg.Size = UDim2.new(1, -24, 0, 6)
@@ -1176,28 +1192,27 @@ local function createSlider(parent, text, min, max, default, callback, order)
     Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
 
     local fill = Instance.new("Frame", bg)
-    fill.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
+    fill.BackgroundColor3 = Color3.fromRGB(70, 150, 255)
     fill.BorderSizePixel = 0
-    fill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
+    fill.Size = UDim2.new((value - min)/(max - min), 0, 1, 0)
     fill.ZIndex = 6
     Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
     Instance.new("UIGradient", fill).Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 120, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 200, 255))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 130, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 210, 255))
     })
 
     local knob = Instance.new("Frame", bg)
     knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     knob.BorderSizePixel = 0
     knob.Size = UDim2.new(0, 14, 0, 14)
-    knob.Position = UDim2.new((value - min) / (max - min), -7, 0.5, -7)
+    knob.Position = UDim2.new((value - min)/(max - min), -7, 0.5, -7)
     knob.ZIndex = 7
     Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
 
     local isDragging = false
-
-    local function update(inputPos)
-        local rel = math.clamp((inputPos.X - bg.AbsolutePosition.X) / bg.AbsoluteSize.X, 0, 1)
+    local function update(pos)
+        local rel = math.clamp((pos.X - bg.AbsolutePosition.X) / bg.AbsoluteSize.X, 0, 1)
         value = math.floor(min + (max - min) * rel)
         valLbl.Text = tostring(value)
         fill.Size = UDim2.new(rel, 0, 1, 0)
@@ -1205,33 +1220,27 @@ local function createSlider(parent, text, min, max, default, callback, order)
         callback(value)
     end
 
-    bg.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = true; update(input.Position)
+    bg.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true; update(i.Position)
         end
     end)
-    knob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = true
-        end
+    knob.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then isDragging = true end
     end)
-    UserInputService.InputChanged:Connect(function(input)
-        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            update(input.Position)
-        end
+    UserInputService.InputChanged:Connect(function(i)
+        if isDragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then update(i.Position) end
     end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = false
-        end
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then isDragging = false end
     end)
     return container
 end
 
 local function createButton(parent, text, callback, order)
     local btn = Instance.new("TextButton", parent)
-    btn.BackgroundColor3 = Color3.fromRGB(55, 100, 220)
-    btn.BackgroundTransparency = 0.25
+    btn.BackgroundColor3 = Color3.fromRGB(45, 90, 200)
+    btn.BackgroundTransparency = 0.2
     btn.BorderSizePixel = 0
     btn.Size = UDim2.new(1, 0, 0, 32)
     btn.Font = Enum.Font.GothamMedium
@@ -1239,17 +1248,12 @@ local function createButton(parent, text, callback, order)
     btn.TextColor3 = Color3.fromRGB(220, 235, 255)
     btn.TextSize = 12
     btn.AutoButtonColor = false
-    btn.LayoutOrder = order
-    btn.ZIndex = 4
+    btn.LayoutOrder = order; btn.ZIndex = 4
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 
     btn.MouseButton1Click:Connect(callback)
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.05}):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.25}):Play()
-    end)
+    btn.MouseEnter:Connect(function() TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.02}):Play() end)
+    btn.MouseLeave:Connect(function() TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.2}):Play() end)
     return btn
 end
 
@@ -1259,39 +1263,32 @@ local function createLabel(parent, text, order)
     lbl.Size = UDim2.new(1, 0, 0, 18)
     lbl.Font = Enum.Font.Gotham
     lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(140, 150, 170)
-    lbl.TextSize = 11
-    lbl.TextWrapped = true
+    lbl.TextColor3 = Color3.fromRGB(130, 160, 200)
+    lbl.TextSize = 11; lbl.TextWrapped = true
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.LayoutOrder = order
-    lbl.ZIndex = 4
+    lbl.LayoutOrder = order; lbl.ZIndex = 4
     return lbl
 end
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- TAB SYSTEM
--- ══════════════════════════════════════
-local tabNames = {
-    "🏠 Main", "⚔️ Combat", "👁️ Visuals",
-    "🌍 Teleport", "🎮 Player", "🔧 Misc", "⚙️ Settings"
-}
+-- ═══════════════════════════════════════
+local tabNames = {"🏠 Main", "⚔️ Combat", "👁️ Visuals", "🌍 Teleport", "🎮 Player", "🔧 Misc", "⚙️ Settings"}
 local tabBtns = {}
 local pages = {}
 
 for i, name in ipairs(tabNames) do
     local tab = Instance.new("TextButton", sidebar)
     tab.Name = "Tab_" .. i
-    tab.BackgroundColor3 = (i == 1) and Color3.fromRGB(55, 110, 255) or Color3.fromRGB(35, 35, 50)
-    tab.BackgroundTransparency = (i == 1) and 0.15 or 0.45
+    tab.BackgroundColor3 = (i == 1) and Color3.fromRGB(50, 110, 230) or Color3.fromRGB(20, 32, 55)
+    tab.BackgroundTransparency = (i == 1) and 0.12 or 0.35
     tab.BorderSizePixel = 0
     tab.Size = UDim2.new(1, 0, 0, 30)
     tab.Font = (i == 1) and Enum.Font.GothamSemibold or Enum.Font.Gotham
     tab.Text = name
-    tab.TextColor3 = (i == 1) and Color3.fromRGB(225, 240, 255) or Color3.fromRGB(135, 135, 160)
-    tab.TextSize = 11
-    tab.AutoButtonColor = false
-    tab.LayoutOrder = i
-    tab.ZIndex = 6
+    tab.TextColor3 = (i == 1) and Color3.fromRGB(225, 240, 255) or Color3.fromRGB(120, 140, 175)
+    tab.TextSize = 11; tab.AutoButtonColor = false
+    tab.LayoutOrder = i; tab.ZIndex = 6
     Instance.new("UICorner", tab).CornerRadius = UDim.new(0, 7)
     tabBtns[i] = tab
 end
@@ -1301,9 +1298,9 @@ for i, name in ipairs(tabNames) do
     if i == 1 then pages[i].Visible = true end
 end
 
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 -- PAGE 1: 🏠 MAIN
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 createSection(pages[1], "MOVEMENT", 1)
 
 createToggle(pages[1], "⚡ Speed Hack", false, function(s)
@@ -1324,32 +1321,34 @@ createToggle(pages[1], "👻 Noclip", false, function(s)
     notify("Noclip", s and "Walk through walls!" or "Disabled", 2)
 end, 6)
 
-createSection(pages[1], "FLIGHT", 7)
+createSection(pages[1], "FLIGHT (FlyGuiV3)", 7)
 
-createToggle(pages[1], "🕊️ Fly Mode", false, function(s)
-    States.fly = s
-    if s then
-        local hrp = getHRP()
-        if hrp then
-            flyBV = Instance.new("BodyVelocity", hrp)
-            flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-            flyBV.Velocity = Vector3.zero
-            flyBG = Instance.new("BodyGyro", hrp)
-            flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
-            flyBG.D = 200; flyBG.P = 10000
-        end
+createButton(pages[1], "🕊️ Load FlyGuiV3 (Press E to Fly)", function()
+    if not States.flyLoaded then
+        States.flyLoaded = true
+        notify("🕊️ FlyGuiV3", "Loading FlyGuiV3... Press E to toggle fly!", 4)
+        task.spawn(function()
+            local success, err = pcall(function()
+                loadstring(game:HttpGet(FLY_SCRIPT_URL))()
+            end)
+            if success then
+                notify("🕊️ FlyGuiV3", "Loaded! Press E to fly. Use WASD + Space/Shift", 5)
+            else
+                notify("❌ Error", "Failed to load FlyGuiV3: " .. tostring(err), 4)
+                States.flyLoaded = false
+            end
+        end)
     else
-        if flyBV then flyBV:Destroy(); flyBV = nil end
-        if flyBG then flyBG:Destroy(); flyBG = nil end
+        notify("🕊️ FlyGuiV3", "Already loaded! Press E to toggle fly", 3)
     end
-    notify("Fly", s and "WASD + Space/LShift" or "Disabled", 2)
 end, 9)
 
-createSlider(pages[1], "Fly Speed", 10, 300, 50, function(v) States.flySpeed = v end, 10)
+createLabel(pages[1], "  ℹ️ FlyGuiV3: Press E to toggle fly on/off", 10)
+createLabel(pages[1], "  ℹ️ WASD to move, Space=Up, Shift=Down", 11)
 
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 -- PAGE 2: ⚔️ COMBAT
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 createSection(pages[2], "AUTO", 1)
 
 createToggle(pages[2], "🖱️ Auto Click (Tool)", false, function(s)
@@ -1375,15 +1374,16 @@ createToggle(pages[2], "🗡️ Extended Reach", false, function(s)
             end
         end
     end
-    notify("Reach", s and "Extended! Re-equip tool" or "Normal", 2)
+    notify("Reach", s and "Extended!" or "Normal", 2)
 end, 7)
 
 createSection(pages[2], "INFO", 9)
-createLabel(pages[2], "⚠️ Combat depends on game type", 10)
+createLabel(pages[2], "  ⚠️ Combat features depend on the game", 10)
+createLabel(pages[2], "  ⚠️ Server-side checks may block some", 11)
 
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 -- PAGE 3: 👁️ VISUALS
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 createSection(pages[3], "PLAYERS", 1)
 
 createToggle(pages[3], "👁️ ESP Highlight", false, function(s)
@@ -1435,13 +1435,9 @@ createToggle(pages[3], "👁️ ESP Highlight", false, function(s)
     else
         for _, plr in pairs(Players:GetPlayers()) do
             if plr.Character then
-                local hl = plr.Character:FindFirstChild("NonsenseESP")
-                if hl then hl:Destroy() end
+                local hl = plr.Character:FindFirstChild("NonsenseESP"); if hl then hl:Destroy() end
                 local head = plr.Character:FindFirstChild("Head")
-                if head then
-                    local bb = head:FindFirstChild("NonsenseESPTag")
-                    if bb then bb:Destroy() end
-                end
+                if head then local bb = head:FindFirstChild("NonsenseESPTag"); if bb then bb:Destroy() end end
             end
         end
         espElements = {}
@@ -1487,7 +1483,7 @@ createSlider(pages[3], "Field of View", 30, 120, 70, function(v)
     States.fov = v; Camera.FieldOfView = v
 end, 12)
 
-createSection(pages[3], "WORLD", 14)
+createSection(pages[3], "CLEANUP", 14)
 
 createButton(pages[3], "🗑️ Remove Particles", function()
     local c = 0
@@ -1496,7 +1492,7 @@ createButton(pages[3], "🗑️ Remove Particles", function()
             v.Enabled = false; c += 1
         end
     end
-    notify("Cleanup", "Disabled " .. c .. " effects", 2)
+    notify("Cleanup", c .. " effects disabled", 2)
 end, 16)
 
 createButton(pages[3], "🖼️ Remove Decals", function()
@@ -1504,12 +1500,12 @@ createButton(pages[3], "🖼️ Remove Decals", function()
     for _, v in pairs(Workspace:GetDescendants()) do
         if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = 1; c += 1 end
     end
-    notify("Cleanup", "Hidden " .. c .. " decals", 2)
+    notify("Cleanup", c .. " decals hidden", 2)
 end, 17)
 
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 -- PAGE 4: 🌍 TELEPORT
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 createSection(pages[4], "QUICK TP", 1)
 
 createToggle(pages[4], "📍 Click TP (Ctrl+Click)", false, function(s)
@@ -1517,12 +1513,9 @@ createToggle(pages[4], "📍 Click TP (Ctrl+Click)", false, function(s)
     notify("Click TP", s and "Ctrl + Left Click" or "Disabled", 2)
 end, 3)
 
-createButton(pages[4], "🎯 TP to Mouse", function()
+createButton(pages[4], "🎯 TP to Mouse Position", function()
     local hrp = getHRP()
-    if hrp then
-        hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
-        notify("Teleport", "Teleported to cursor", 2)
-    end
+    if hrp then hrp.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0)); notify("Teleport", "Done!", 2) end
 end, 4)
 
 createSection(pages[4], "PLAYERS", 6)
@@ -1535,11 +1528,10 @@ local function refreshPlayerList()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then
             ord += 1
-            local b = createButton(pages[4], "📍 " .. plr.DisplayName, function()
+            local b = createButton(pages[4], "📍 " .. plr.DisplayName .. " (@" .. plr.Name .. ")", function()
                 if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = getHRP()
-                    if hrp then
-                        hrp.CFrame = plr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                    if hrp then hrp.CFrame = plr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
                         notify("Teleport", "Went to " .. plr.DisplayName, 2)
                     end
                 end
@@ -1549,15 +1541,14 @@ local function refreshPlayerList()
     end
 end
 
-createButton(pages[4], "🔄 Refresh Players", function()
-    refreshPlayerList(); notify("Teleport", "Refreshed", 2)
+createButton(pages[4], "🔄 Refresh Player List", function()
+    refreshPlayerList(); notify("Teleport", "Refreshed!", 2)
 end, 7)
-
 refreshPlayerList()
 
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 -- PAGE 5: 🎮 PLAYER
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 createSection(pages[5], "SURVIVAL", 1)
 
 createToggle(pages[5], "❤️ God Mode (Client)", false, function(s)
@@ -1590,21 +1581,17 @@ end, 9)
 createSection(pages[5], "CHARACTER", 11)
 
 createButton(pages[5], "💀 Reset Character", function()
-    local h = getHumanoid()
-    if h then h.Health = 0; notify("Player", "Reset", 2) end
+    local h = getHumanoid(); if h then h.Health = 0 end; notify("Player", "Reset", 2)
 end, 13)
 
-createButton(pages[5], "🧊 Freeze/Unfreeze", function()
+createButton(pages[5], "🧊 Freeze / Unfreeze", function()
     local hrp = getHRP()
-    if hrp then
-        hrp.Anchored = not hrp.Anchored
-        notify("Player", hrp.Anchored and "Frozen" or "Unfrozen", 2)
-    end
+    if hrp then hrp.Anchored = not hrp.Anchored; notify("Player", hrp.Anchored and "Frozen" or "Unfrozen", 2) end
 end, 14)
 
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 -- PAGE 6: 🔧 MISC
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 createSection(pages[6], "UTILITY", 1)
 
 createToggle(pages[6], "💤 Anti AFK", false, function(s)
@@ -1619,7 +1606,7 @@ createToggle(pages[6], "💤 Anti AFK", false, function(s)
     else
         if antiAFKConn then antiAFKConn:Disconnect(); antiAFKConn = nil end
     end
-    notify("Anti AFK", s and "Won't be kicked" or "Disabled", 2)
+    notify("Anti AFK", s and "Won't be kicked!" or "Disabled", 2)
 end, 3)
 
 createButton(pages[6], "🚀 FPS Boost", function()
@@ -1628,30 +1615,24 @@ createButton(pages[6], "🚀 FPS Boost", function()
     for _, v in pairs(Workspace:GetDescendants()) do
         if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") or v:IsA("Trail") then
             v.Enabled = false; c += 1
-        elseif v:IsA("BasePart") then
-            v.Material = Enum.Material.SmoothPlastic; v.Reflectance = 0
-        end
+        elseif v:IsA("BasePart") then v.Material = Enum.Material.SmoothPlastic; v.Reflectance = 0 end
     end
     Lighting.GlobalShadows = false; Lighting.FogEnd = 9e9
     for _, v in pairs(Lighting:GetDescendants()) do
-        if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then
-            v.Enabled = false
-        end
+        if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then v.Enabled = false end
     end
-    notify("FPS Boost", "Applied! " .. c .. " effects disabled", 3)
+    notify("FPS Boost", c .. " effects disabled!", 3)
 end, 4)
 
 createSection(pages[6], "SERVER", 6)
 
 createButton(pages[6], "🔄 Rejoin Server", function()
-    notify("Server", "Rejoining...", 2)
-    task.wait(1)
+    notify("Server", "Rejoining...", 2); task.wait(1)
     TeleportService:Teleport(game.PlaceId, LocalPlayer)
 end, 8)
 
 createButton(pages[6], "🌐 Server Hop", function()
-    notify("Server", "Finding new server...", 2)
-    task.wait(0.5)
+    notify("Server", "Finding...", 2); task.wait(0.5)
     pcall(function()
         local data = game:GetService("HttpService"):JSONDecode(
             game:HttpGetAsync("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")
@@ -1659,46 +1640,42 @@ createButton(pages[6], "🌐 Server Hop", function()
         if data and data.data then
             for _, sv in pairs(data.data) do
                 if sv.id ~= game.JobId and sv.playing < sv.maxPlayers then
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, sv.id, LocalPlayer)
-                    return
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, sv.id, LocalPlayer); return
                 end
             end
         end
-        notify("Error", "No servers found", 2)
+        notify("Error", "No servers", 2)
     end)
 end, 9)
 
 createButton(pages[6], "📋 Copy Server ID", function()
-    if setclipboard then setclipboard(game.JobId); notify("Server", "Copied!", 2)
+    if setclipboard then setclipboard(game.JobId); notify("Copied!", game.JobId, 2)
     else notify("Error", "Not supported", 2) end
 end, 10)
 
 createSection(pages[6], "INFO", 12)
 createLabel(pages[6], "  Players: " .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers, 13)
-createLabel(pages[6], "  Job: " .. string.sub(game.JobId, 1, 20) .. "...", 14)
+createLabel(pages[6], "  Job: " .. string.sub(game.JobId, 1, 22) .. "...", 14)
 
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 -- PAGE 7: ⚙️ SETTINGS
--- ═══════════════════════════════════════════════════════
+-- ═════════════════════════════════════════════════
 createSection(pages[7], "GUI CONTROLS", 1)
-createLabel(pages[7], "  Press RightShift to toggle GUI", 3)
-createLabel(pages[7], "  Drag top bar to move window", 4)
+createLabel(pages[7], "  🔑 RightShift = Toggle GUI", 3)
+createLabel(pages[7], "  🖱️ Drag top bar to move", 4)
+createLabel(pages[7], "  🕊️ Fly: Press E after loading FlyGuiV3", 5)
+
+createSection(pages[7], "ACTIONS", 7)
 
 createButton(pages[7], "🗑️ Destroy GUI", function()
-    notify("Goodbye", "Destroying Nonsense Hub...", 1)
-    task.wait(1.2); screenGui:Destroy()
-end, 5)
-
-createSection(pages[7], "RESET", 7)
+    notify("Goodbye", "Destroying...", 1); task.wait(1.2); screenGui:Destroy()
+end, 9)
 
 createButton(pages[7], "♻️ Reset All Features", function()
-    States.speed = false; States.noclip = false; States.fly = false
-    States.infiniteJump = false; States.esp = false; States.fullbright = false
-    States.noFog = false; States.godMode = false; States.clickTP = false
-    States.autoClick = false; States.antiAFK = false; States.noFallDmg = false
-
-    if flyBV then flyBV:Destroy(); flyBV = nil end
-    if flyBG then flyBG:Destroy(); flyBG = nil end
+    States.speed = false; States.noclip = false; States.infiniteJump = false
+    States.esp = false; States.fullbright = false; States.noFog = false
+    States.godMode = false; States.clickTP = false; States.autoClick = false
+    States.antiAFK = false; States.noFallDmg = false
 
     for _, plr in pairs(Players:GetPlayers()) do
         if plr.Character then
@@ -1715,31 +1692,31 @@ createButton(pages[7], "♻️ Reset All Features", function()
     Lighting.Ambient = origLighting.Ambient or Color3.fromRGB(127, 127, 127)
     Lighting.Brightness = origLighting.Brightness or 1
     Lighting.OutdoorAmbient = origLighting.OutdoorAmbient or Color3.fromRGB(127, 127, 127)
-    Lighting.FogEnd = origLighting.FogEnd or 1e5; Lighting.FogStart = origLighting.FogStart or 0
-
+    Lighting.FogEnd = origLighting.FogEnd or 1e5
+    Lighting.FogStart = origLighting.FogStart or 0
     Camera.FieldOfView = 70; Workspace.Gravity = 196.2
 
     if antiAFKConn then antiAFKConn:Disconnect(); antiAFKConn = nil end
-    notify("Reset", "All features reset!", 3)
-end, 9)
+    notify("♻️ Reset", "All features reset!", 3)
+end, 10)
 
-createSection(pages[7], "CREDITS", 11)
-createLabel(pages[7], "  🌀 Nonsense Hub v2.0", 13)
-createLabel(pages[7], "  Made with ❤️ for Roblox", 14)
-createLabel(pages[7], "  7 Tabs • 20+ Working Features", 15)
+createSection(pages[7], "CREDITS", 12)
+createLabel(pages[7], "  🌀 Nonsense Hub v2.0 ⛰️ Mountain Edition", 14)
+createLabel(pages[7], "  🕊️ Fly system: FlyGuiV3 by XNEOFF", 15)
+createLabel(pages[7], "  Made with ❤️ • 7 Tabs • 20+ Features", 16)
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- TAB SWITCHING
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local function switchTab(idx)
     for i, page in ipairs(pages) do page.Visible = (i == idx) end
     for i, btn in ipairs(tabBtns) do
         if i == idx then
-            TweenService:Create(btn, tweenFast, {BackgroundColor3 = Color3.fromRGB(55, 110, 255), BackgroundTransparency = 0.15}):Play()
+            TweenService:Create(btn, tweenFast, {BackgroundColor3 = Color3.fromRGB(50, 110, 230), BackgroundTransparency = 0.12}):Play()
             btn.Font = Enum.Font.GothamSemibold; btn.TextColor3 = Color3.fromRGB(225, 240, 255)
         else
-            TweenService:Create(btn, tweenFast, {BackgroundColor3 = Color3.fromRGB(35, 35, 50), BackgroundTransparency = 0.45}):Play()
-            btn.Font = Enum.Font.Gotham; btn.TextColor3 = Color3.fromRGB(135, 135, 160)
+            TweenService:Create(btn, tweenFast, {BackgroundColor3 = Color3.fromRGB(20, 32, 55), BackgroundTransparency = 0.35}):Play()
+            btn.Font = Enum.Font.Gotham; btn.TextColor3 = Color3.fromRGB(120, 140, 175)
         end
     end
     pageTitle.Text = tabNames[idx]; activeTab = idx
@@ -1747,25 +1724,18 @@ end
 
 for i, btn in ipairs(tabBtns) do
     btn.MouseButton1Click:Connect(function() switchTab(i) end)
-    btn.MouseEnter:Connect(function()
-        if activeTab ~= i then TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.25}):Play() end
-    end)
-    btn.MouseLeave:Connect(function()
-        if activeTab ~= i then TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.45}):Play() end
-    end)
+    btn.MouseEnter:Connect(function() if activeTab ~= i then TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.2}):Play() end end)
+    btn.MouseLeave:Connect(function() if activeTab ~= i then TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.35}):Play() end end)
 end
 
--- ══════════════════════════════════════
--- RUNTIME LOOPS (All Features)
--- ══════════════════════════════════════
-
--- Speed + God Mode
+-- ═══════════════════════════════════════
+-- RUNTIME LOOPS
+-- ═══════════════════════════════════════
 RunService.Heartbeat:Connect(function()
     if States.speed then local h = getHumanoid(); if h then h.WalkSpeed = States.walkSpeed end end
     if States.godMode then local h = getHumanoid(); if h then h.Health = h.MaxHealth end end
 end)
 
--- Noclip + No Fall
 RunService.Stepped:Connect(function()
     if States.noclip then
         local c = LocalPlayer.Character
@@ -1780,20 +1750,7 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- Fly + ESP + FOV
 RunService.RenderStepped:Connect(function()
-    if States.fly and flyBV and flyBG then
-        flyBG.CFrame = Camera.CFrame
-        local dir = Vector3.zero
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= Camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += Camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0, 1, 0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir -= Vector3.new(0, 1, 0) end
-        flyBV.Velocity = dir.Magnitude > 0 and dir.Unit * States.flySpeed or Vector3.zero
-    end
-
     if States.esp then
         local myHRP = getHRP()
         if myHRP then
@@ -1817,19 +1774,15 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-
     Camera.FieldOfView = States.fov
 end)
 
--- Infinite Jump
 UserInputService.JumpRequest:Connect(function()
     if States.infiniteJump then
-        local h = getHumanoid()
-        if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+        local h = getHumanoid(); if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
     end
 end)
 
--- Click TP
 Mouse.Button1Down:Connect(function()
     if States.clickTP and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
         local hrp = getHRP()
@@ -1837,7 +1790,6 @@ Mouse.Button1Down:Connect(function()
     end
 end)
 
--- Auto Click
 task.spawn(function()
     while screenGui.Parent do
         if States.autoClick then
@@ -1848,49 +1800,32 @@ task.spawn(function()
     end
 end)
 
--- ESP on new players
+-- ESP for new players
 Players.PlayerAdded:Connect(function(plr)
     plr.CharacterAdded:Connect(function()
         task.wait(1)
-        if States.esp then
-            local hl = Instance.new("Highlight")
-            hl.Name = "NonsenseESP"
-            hl.FillColor = Color3.fromRGB(255, 50, 50)
-            hl.FillTransparency = 0.5
-            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-            hl.Parent = plr.Character
+        if States.esp and plr.Character then
+            local hl = Instance.new("Highlight"); hl.Name = "NonsenseESP"
+            hl.FillColor = Color3.fromRGB(255, 50, 50); hl.FillTransparency = 0.5
+            hl.OutlineColor = Color3.fromRGB(255, 255, 255); hl.Parent = plr.Character
 
             local head = plr.Character:FindFirstChild("Head")
             if head then
-                local bb = Instance.new("BillboardGui")
-                bb.Name = "NonsenseESPTag"
-                bb.Adornee = head
-                bb.Size = UDim2.new(0, 200, 0, 40)
-                bb.StudsOffset = Vector3.new(0, 2.5, 0)
-                bb.AlwaysOnTop = true
-                bb.Parent = head
+                local bb = Instance.new("BillboardGui"); bb.Name = "NonsenseESPTag"
+                bb.Adornee = head; bb.Size = UDim2.new(0, 200, 0, 40)
+                bb.StudsOffset = Vector3.new(0, 2.5, 0); bb.AlwaysOnTop = true; bb.Parent = head
 
-                local nt = Instance.new("TextLabel", bb)
-                nt.BackgroundTransparency = 1
-                nt.Size = UDim2.new(1, 0, 0.5, 0)
-                nt.Font = Enum.Font.GothamBold
-                nt.Text = plr.DisplayName
-                nt.TextColor3 = Color3.fromRGB(255, 255, 255)
-                nt.TextStrokeTransparency = 0
-                nt.TextSize = 14
+                local nt = Instance.new("TextLabel", bb); nt.BackgroundTransparency = 1
+                nt.Size = UDim2.new(1, 0, 0.5, 0); nt.Font = Enum.Font.GothamBold
+                nt.Text = plr.DisplayName; nt.TextColor3 = Color3.fromRGB(255, 255, 255)
+                nt.TextStrokeTransparency = 0; nt.TextSize = 14
 
-                local dt = Instance.new("TextLabel", bb)
-                dt.Name = "Dist"
-                dt.BackgroundTransparency = 1
-                dt.Position = UDim2.new(0, 0, 0.5, 0)
-                dt.Size = UDim2.new(1, 0, 0.5, 0)
-                dt.Font = Enum.Font.Gotham
-                dt.Text = "0m"
-                dt.TextColor3 = Color3.fromRGB(200, 200, 200)
-                dt.TextStrokeTransparency = 0.3
-                dt.TextSize = 12
+                local dt = Instance.new("TextLabel", bb); dt.Name = "Dist"
+                dt.BackgroundTransparency = 1; dt.Position = UDim2.new(0, 0, 0.5, 0)
+                dt.Size = UDim2.new(1, 0, 0.5, 0); dt.Font = Enum.Font.Gotham
+                dt.Text = "0m"; dt.TextColor3 = Color3.fromRGB(200, 200, 200)
+                dt.TextStrokeTransparency = 0.3; dt.TextSize = 12
             end
-            espElements[plr] = true
         end
     end)
 end)
@@ -1900,19 +1835,6 @@ Players.PlayerRemoving:Connect(function(plr) espElements[plr] = nil end)
 -- Respawn handler
 LocalPlayer.CharacterAdded:Connect(function(char)
     task.wait(1)
-    if States.fly then
-        local hrp = char:WaitForChild("HumanoidRootPart", 5)
-        if hrp then
-            if flyBV then flyBV:Destroy() end
-            if flyBG then flyBG:Destroy() end
-            flyBV = Instance.new("BodyVelocity", hrp)
-            flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-            flyBV.Velocity = Vector3.zero
-            flyBG = Instance.new("BodyGyro", hrp)
-            flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
-            flyBG.D = 200; flyBG.P = 10000
-        end
-    end
     if States.noFallDmg then
         local h = char:WaitForChild("Humanoid", 5)
         if h then
@@ -1922,9 +1844,9 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- DRAGGING
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local dragging, dragInput, dragStart, startPos
 
 topBar.InputBegan:Connect(function(input)
@@ -1951,14 +1873,14 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- TOGGLE BUTTON
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 local toggleBtn = Instance.new("TextButton", screenGui)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(55, 110, 255)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 90, 200)
 toggleBtn.BorderSizePixel = 0
-toggleBtn.Size = UDim2.new(0, 46, 0, 46)
-toggleBtn.Position = UDim2.new(0, 10, 0.5, -23)
+toggleBtn.Size = UDim2.new(0, 48, 0, 48)
+toggleBtn.Position = UDim2.new(0, 10, 0.5, -24)
 toggleBtn.Font = Enum.Font.GothamBold
 toggleBtn.Text = "🌀"
 toggleBtn.TextSize = 22
@@ -1966,94 +1888,78 @@ toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.ZIndex = 20
 toggleBtn.AutoButtonColor = false
 Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
-local tgStroke = Instance.new("UIStroke", toggleBtn)
-tgStroke.Color = Color3.fromRGB(100, 160, 255)
-tgStroke.Thickness = 2
-tgStroke.Transparency = 0.3
+local tgS = Instance.new("UIStroke", toggleBtn)
+tgS.Color = Color3.fromRGB(100, 170, 255); tgS.Thickness = 2; tgS.Transparency = 0.25
 
 local isOpen = true
-
 local function toggleGUI()
     isOpen = not isOpen
     if isOpen then
         mainFrame.Visible = true; mainScale.Scale = 0.85
         TweenService:Create(mainScale, tweenBounce, {Scale = 1}):Play()
-        TweenService:Create(toggleBtn, tweenFast, {BackgroundColor3 = Color3.fromRGB(55, 110, 255), Rotation = 0}):Play()
+        TweenService:Create(toggleBtn, tweenFast, {BackgroundColor3 = Color3.fromRGB(40, 90, 200), Rotation = 0}):Play()
     else
         TweenService:Create(mainScale, tweenFast, {Scale = 0.85}):Play()
-        TweenService:Create(toggleBtn, tweenFast, {BackgroundColor3 = Color3.fromRGB(255, 70, 70), Rotation = 180}):Play()
+        TweenService:Create(toggleBtn, tweenFast, {BackgroundColor3 = Color3.fromRGB(220, 60, 60), Rotation = 180}):Play()
         task.delay(0.25, function() if not isOpen then mainFrame.Visible = false end end)
     end
 end
 
 toggleBtn.MouseButton1Click:Connect(toggleGUI)
-
 toggleBtn.MouseEnter:Connect(function()
-    TweenService:Create(toggleBtn, tweenFast, {Size = UDim2.new(0, 52, 0, 52), Position = UDim2.new(0, 7, 0.5, -26)}):Play()
+    TweenService:Create(toggleBtn, tweenFast, {Size = UDim2.new(0, 54, 0, 54), Position = UDim2.new(0, 7, 0.5, -27)}):Play()
 end)
 toggleBtn.MouseLeave:Connect(function()
-    TweenService:Create(toggleBtn, tweenFast, {Size = UDim2.new(0, 46, 0, 46), Position = UDim2.new(0, 10, 0.5, -23)}):Play()
+    TweenService:Create(toggleBtn, tweenFast, {Size = UDim2.new(0, 48, 0, 48), Position = UDim2.new(0, 10, 0.5, -24)}):Play()
 end)
 
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 -- CLOSE & MINIMIZE
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
 closeBtn.MouseButton1Click:Connect(function()
     TweenService:Create(mainScale, tweenFast, {Scale = 0}):Play()
     task.delay(0.3, function() screenGui:Destroy() end)
 end)
-closeBtn.MouseEnter:Connect(function()
-    TweenService:Create(closeBtn, tweenFast, {BackgroundTransparency = 0.2, BackgroundColor3 = Color3.fromRGB(255, 40, 40)}):Play()
-end)
-closeBtn.MouseLeave:Connect(function()
-    TweenService:Create(closeBtn, tweenFast, {BackgroundTransparency = 0.85, BackgroundColor3 = Color3.fromRGB(255, 55, 55)}):Play()
-end)
+closeBtn.MouseEnter:Connect(function() TweenService:Create(closeBtn, tweenFast, {BackgroundTransparency = 0.15}):Play() end)
+closeBtn.MouseLeave:Connect(function() TweenService:Create(closeBtn, tweenFast, {BackgroundTransparency = 0.82}):Play() end)
 
-local isMinimized = false
-local savedSize
-
+local isMinimized = false; local savedSize
 minBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     if isMinimized then
         savedSize = mainFrame.Size
-        TweenService:Create(mainFrame, tweenSmooth, {Size = UDim2.new(0, 580, 0, 40)}):Play()
+        TweenService:Create(mainFrame, tweenSmooth, {Size = UDim2.new(0, 600, 0, 42)}):Play()
         minBtn.Text = "□"
     else
-        TweenService:Create(mainFrame, tweenBounce, {Size = savedSize or UDim2.new(0, 580, 0, 380)}):Play()
+        TweenService:Create(mainFrame, tweenBounce, {Size = savedSize or UDim2.new(0, 600, 0, 400)}):Play()
         minBtn.Text = "─"
     end
 end)
-minBtn.MouseEnter:Connect(function()
-    TweenService:Create(minBtn, tweenFast, {BackgroundTransparency = 0.2, BackgroundColor3 = Color3.fromRGB(255, 210, 40)}):Play()
-end)
-minBtn.MouseLeave:Connect(function()
-    TweenService:Create(minBtn, tweenFast, {BackgroundTransparency = 0.85, BackgroundColor3 = Color3.fromRGB(255, 200, 50)}):Play()
-end)
+minBtn.MouseEnter:Connect(function() TweenService:Create(minBtn, tweenFast, {BackgroundTransparency = 0.15}):Play() end)
+minBtn.MouseLeave:Connect(function() TweenService:Create(minBtn, tweenFast, {BackgroundTransparency = 0.82}):Play() end)
 
--- ══════════════════════════════════════
--- KEYBIND (RightShift)
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════
+-- KEYBIND
+-- ═══════════════════════════════════════
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.RightShift then toggleGUI() end
 end)
 
--- ══════════════════════════════════════
--- MAIN GUI ENTRANCE ANIMATION
--- ══════════════════════════════════════
-mainScale.Scale = 0
-mainFrame.Visible = true
-
+-- ═══════════════════════════════════════
+-- ENTRANCE ANIMATION
+-- ═══════════════════════════════════════
+mainScale.Scale = 0; mainFrame.Visible = true
 task.delay(0.15, function()
     TweenService:Create(mainScale, tweenBounce, {Scale = 1}):Play()
 end)
 
--- Welcome notification
 task.delay(1, function()
-    notify("🌀 Nonsense Hub", "Loaded! RightShift to toggle. 7 tabs ready.", 4)
+    notify("🌀 Nonsense Hub", "Loaded! ⛰️ Mountain Edition • RightShift to toggle", 4)
 end)
 
-print("🌀 Nonsense Hub v2.0 - Fully Loaded!")
-print("   7 Tabs | 20+ Features | All Working")
+print("🌀 Nonsense Hub v2.0 ⛰️ Mountain Edition - Loaded!")
+print("   7 Tabs | 20+ Features | FlyGuiV3 Integrated")
+print("   🕊️ Load FlyGuiV3 from Main tab, press E to fly")
 
 return screenGui
