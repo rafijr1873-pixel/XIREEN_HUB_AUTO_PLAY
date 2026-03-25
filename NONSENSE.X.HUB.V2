@@ -16,7 +16,7 @@
 -- ║  3. Ganti angka di bawah dengan ID kamu                    ║
 -- ╚══════════════════════════════════════════════════════════════╝
 
-local WALLPAPER_ID = "rbxassetid://6034287594" -- << GANTI DENGAN ID GAMBAR GUNUNG KAMU
+local WALLPAPER_ID = "rbxassetid://105440115560793" -- << GANTI DENGAN ID GAMBAR GUNUNG KAMU
 local FLY_SCRIPT_URL = "https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"
 
 -- ╔══════════════════════════════════════════════════════════════╗
