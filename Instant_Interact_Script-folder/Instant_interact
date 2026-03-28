@@ -1,0 +1,582 @@
+--[[
+    ============================================
+    INSTANT INTERACT SCRIPT
+    - Toggle GUI (ON/OFF)
+    - Mobile Friendly (Draggable Button)
+    - Mengubah semua ProximityPrompt jadi INSTANT
+    ============================================
+]]
+
+-- ===================== SERVICES =====================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ===================== SETTINGS =====================
+local Settings = {
+    Enabled = false,                  -- Mulai OFF
+    HoldDuration = 0,                 -- 0 = Instant
+    MaxDistance = 50,                  -- Jarak maksimum interact
+    AutoInteract = false,             -- Auto trigger prompt terdekat
+    AutoInteractDelay = 0.1,          -- Delay auto interact
+
+    -- UI Colors
+    OnColor = Color3.fromRGB(0, 200, 100),
+    OffColor = Color3.fromRGB(200, 50, 50),
+    BackgroundColor = Color3.fromRGB(30, 30, 30),
+    AccentColor = Color3.fromRGB(45, 45, 45),
+    TextColor = Color3.fromRGB(255, 255, 255),
+}
+
+-- Simpan durasi asli setiap prompt
+local originalDurations = {}
+local originalDistances = {}
+
+-- ===================== GUI CREATION =====================
+local function createGUI()
+    -- Hapus GUI lama jika ada
+    local oldGui = playerGui:FindFirstChild("InstantInteractGUI")
+    if oldGui then oldGui:Destroy() end
+
+    -- ScreenGui
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "InstantInteractGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.DisplayOrder = 999
+
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 220, 0, 0) -- Mulai collapsed
+    mainFrame.Position = UDim2.new(1, -240, 0, 120)
+    mainFrame.BackgroundColor3 = Settings.BackgroundColor
+    mainFrame.BorderSizePixel = 0
+    mainFrame.ClipsDescendants = true
+    mainFrame.Parent = screenGui
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 10)
+    mainCorner.Parent = mainFrame
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(80, 80, 80)
+    mainStroke.Thickness = 1.5
+    mainStroke.Parent = mainFrame
+
+    -- Title Bar (Toggle Button untuk buka/tutup panel)
+    local titleBar = Instance.new("TextButton")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(0, 220, 0, 40)
+    titleBar.Position = UDim2.new(1, -240, 0, 120)
+    titleBar.BackgroundColor3 = Settings.AccentColor
+    titleBar.BorderSizePixel = 0
+    titleBar.Text = "⚡ Instant Interact"
+    titleBar.TextColor3 = Settings.TextColor
+    titleBar.TextSize = 16
+    titleBar.Font = Enum.Font.GothamBold
+    titleBar.AutoButtonColor = false
+    titleBar.Parent = screenGui
+
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 10)
+    titleCorner.Parent = titleBar
+
+    local titleStroke = Instance.new("UIStroke")
+    titleStroke.Color = Color3.fromRGB(80, 80, 80)
+    titleStroke.Thickness = 1.5
+    titleStroke.Parent = titleBar
+
+    -- ============ Panel Content (di dalam mainFrame) ============
+
+    -- Status Label
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Name = "StatusLabel"
+    statusLabel.Size = UDim2.new(1, -20, 0, 25)
+    statusLabel.Position = UDim2.new(0, 10, 0, 10)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "Status: OFF"
+    statusLabel.TextColor3 = Settings.OffColor
+    statusLabel.TextSize = 14
+    statusLabel.Font = Enum.Font.GothamSemibold
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = mainFrame
+
+    -- Toggle Instant Interact Button
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Name = "ToggleBtn"
+    toggleBtn.Size = UDim2.new(1, -20, 0, 38)
+    toggleBtn.Position = UDim2.new(0, 10, 0, 40)
+    toggleBtn.BackgroundColor3 = Settings.OffColor
+    toggleBtn.BorderSizePixel = 0
+    toggleBtn.Text = "🔴 ENABLE"
+    toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+    toggleBtn.TextSize = 15
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.AutoButtonColor = false
+    toggleBtn.Parent = mainFrame
+
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 8)
+    toggleCorner.Parent = toggleBtn
+
+    -- Auto Interact Toggle
+    local autoBtn = Instance.new("TextButton")
+    autoBtn.Name = "AutoBtn"
+    autoBtn.Size = UDim2.new(1, -20, 0, 38)
+    autoBtn.Position = UDim2.new(0, 10, 0, 85)
+    autoBtn.BackgroundColor3 = Settings.OffColor
+    autoBtn.BorderSizePixel = 0
+    autoBtn.Text = "🔴 Auto Interact"
+    autoBtn.TextColor3 = Color3.new(1, 1, 1)
+    autoBtn.TextSize = 14
+    autoBtn.Font = Enum.Font.GothamSemibold
+    autoBtn.AutoButtonColor = false
+    autoBtn.Parent = mainFrame
+
+    local autoCorner = Instance.new("UICorner")
+    autoCorner.CornerRadius = UDim.new(0, 8)
+    autoCorner.Parent = autoBtn
+
+    -- Distance Slider Label
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Name = "DistLabel"
+    distLabel.Size = UDim2.new(1, -20, 0, 20)
+    distLabel.Position = UDim2.new(0, 10, 0, 130)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text = "Distance: " .. Settings.MaxDistance
+    distLabel.TextColor3 = Settings.TextColor
+    distLabel.TextSize = 13
+    distLabel.Font = Enum.Font.Gotham
+    distLabel.TextXAlignment = Enum.TextXAlignment.Left
+    distLabel.Parent = mainFrame
+
+    -- Distance Slider Background
+    local sliderBg = Instance.new("Frame")
+    sliderBg.Name = "SliderBg"
+    sliderBg.Size = UDim2.new(1, -20, 0, 8)
+    sliderBg.Position = UDim2.new(0, 10, 0, 153)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    sliderBg.BorderSizePixel = 0
+    sliderBg.Parent = mainFrame
+
+    local sliderBgCorner = Instance.new("UICorner")
+    sliderBgCorner.CornerRadius = UDim.new(1, 0)
+    sliderBgCorner.Parent = sliderBg
+
+    -- Slider Fill
+    local sliderFill = Instance.new("Frame")
+    sliderFill.Name = "SliderFill"
+    sliderFill.Size = UDim2.new(Settings.MaxDistance / 100, 0, 1, 0)
+    sliderFill.BackgroundColor3 = Settings.OnColor
+    sliderFill.BorderSizePixel = 0
+    sliderFill.Parent = sliderBg
+
+    local sliderFillCorner = Instance.new("UICorner")
+    sliderFillCorner.CornerRadius = UDim.new(1, 0)
+    sliderFillCorner.Parent = sliderFill
+
+    -- Slider Knob (Draggable)
+    local sliderKnob = Instance.new("TextButton")
+    sliderKnob.Name = "SliderKnob"
+    sliderKnob.Size = UDim2.new(0, 18, 0, 18)
+    sliderKnob.Position = UDim2.new(Settings.MaxDistance / 100, -9, 0.5, -9)
+    sliderKnob.BackgroundColor3 = Color3.new(1, 1, 1)
+    sliderKnob.BorderSizePixel = 0
+    sliderKnob.Text = ""
+    sliderKnob.AutoButtonColor = false
+    sliderKnob.ZIndex = 2
+    sliderKnob.Parent = sliderBg
+
+    local knobCorner = Instance.new("UICorner")
+    knobCorner.CornerRadius = UDim.new(1, 0)
+    knobCorner.Parent = sliderKnob
+
+    -- Prompt Counter
+    local counterLabel = Instance.new("TextLabel")
+    counterLabel.Name = "CounterLabel"
+    counterLabel.Size = UDim2.new(1, -20, 0, 20)
+    counterLabel.Position = UDim2.new(0, 10, 0, 170)
+    counterLabel.BackgroundTransparency = 1
+    counterLabel.Text = "Prompts Found: 0"
+    counterLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    counterLabel.TextSize = 12
+    counterLabel.Font = Enum.Font.Gotham
+    counterLabel.TextXAlignment = Enum.TextXAlignment.Left
+    counterLabel.Parent = mainFrame
+
+    -- Credit
+    local creditLabel = Instance.new("TextLabel")
+    creditLabel.Name = "CreditLabel"
+    creditLabel.Size = UDim2.new(1, -20, 0, 15)
+    creditLabel.Position = UDim2.new(0, 10, 0, 192)
+    creditLabel.BackgroundTransparency = 1
+    creditLabel.Text = "Mobile + PC Support"
+    creditLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+    creditLabel.TextSize = 11
+    creditLabel.Font = Enum.Font.Gotham
+    creditLabel.TextXAlignment = Enum.TextXAlignment.Center
+    creditLabel.Parent = mainFrame
+
+    screenGui.Parent = playerGui
+
+    return {
+        ScreenGui = screenGui,
+        MainFrame = mainFrame,
+        TitleBar = titleBar,
+        ToggleBtn = toggleBtn,
+        AutoBtn = autoBtn,
+        StatusLabel = statusLabel,
+        DistLabel = distLabel,
+        SliderBg = sliderBg,
+        SliderFill = sliderFill,
+        SliderKnob = sliderKnob,
+        CounterLabel = counterLabel,
+    }
+end
+
+-- ===================== GUI LOGIC =====================
+local gui = createGUI()
+local panelOpen = false
+local PANEL_HEIGHT = 215
+
+-- ===== Draggable Title Bar (Mobile + PC) =====
+local dragging = false
+local dragStart, startPos
+
+local function updateDrag(inputPos)
+    if dragging then
+        local delta = inputPos - dragStart
+        local newPos = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+        gui.TitleBar.Position = newPos
+        gui.MainFrame.Position = UDim2.new(
+            newPos.X.Scale, newPos.X.Offset,
+            newPos.Y.Scale, newPos.Y.Offset + 42
+        )
+    end
+end
+
+gui.TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = Vector2.new(input.Position.X, input.Position.Y)
+        startPos = gui.TitleBar.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging then
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+            updateDrag(Vector2.new(input.Position.X, input.Position.Y))
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- ===== Toggle Panel Open/Close =====
+local function togglePanel()
+    panelOpen = not panelOpen
+    local targetSize
+    if panelOpen then
+        targetSize = UDim2.new(0, 220, 0, PANEL_HEIGHT)
+    else
+        targetSize = UDim2.new(0, 220, 0, 0)
+    end
+    gui.MainFrame:TweenSize(targetSize, Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.3, true)
+end
+
+-- Debounce agar drag tidak trigger click
+local lastClickTime = 0
+gui.TitleBar.MouseButton1Up:Connect(function()
+    if not dragging then
+        local now = tick()
+        if now - lastClickTime > 0.3 then
+            togglePanel()
+        end
+        lastClickTime = now
+    end
+end)
+
+gui.TitleBar.TouchTap:Connect(function()
+    togglePanel()
+end)
+
+-- ===================== CORE FUNCTIONS =====================
+
+-- Modifikasi satu ProximityPrompt
+local function modifyPrompt(prompt)
+    if not prompt:IsA("ProximityPrompt") then return end
+
+    -- Simpan nilai asli
+    if not originalDurations[prompt] then
+        originalDurations[prompt] = prompt.HoldDuration
+    end
+    if not originalDistances[prompt] then
+        originalDistances[prompt] = prompt.MaxActivationDistance
+    end
+
+    if Settings.Enabled then
+        prompt.HoldDuration = Settings.HoldDuration
+        prompt.MaxActivationDistance = Settings.MaxDistance
+    end
+end
+
+-- Restore satu ProximityPrompt
+local function restorePrompt(prompt)
+    if not prompt:IsA("ProximityPrompt") then return end
+
+    if originalDurations[prompt] then
+        prompt.HoldDuration = originalDurations[prompt]
+    end
+    if originalDistances[prompt] then
+        prompt.MaxActivationDistance = originalDistances[prompt]
+    end
+end
+
+-- Cari dan modifikasi SEMUA prompts di game
+local function modifyAllPrompts()
+    local count = 0
+    for _, obj in pairs(game:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            modifyPrompt(obj)
+            count = count + 1
+        end
+    end
+    gui.CounterLabel.Text = "Prompts Found: " .. count
+end
+
+-- Restore semua prompts
+local function restoreAllPrompts()
+    for _, obj in pairs(game:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            restorePrompt(obj)
+        end
+    end
+end
+
+-- ===== Listener untuk prompt baru yang muncul =====
+game.DescendantAdded:Connect(function(obj)
+    if obj:IsA("ProximityPrompt") and Settings.Enabled then
+        task.wait(0.1)
+        modifyPrompt(obj)
+    end
+end)
+
+-- ===== Bersihkan saat prompt dihapus =====
+game.DescendantRemoving:Connect(function(obj)
+    if obj:IsA("ProximityPrompt") then
+        originalDurations[obj] = nil
+        originalDistances[obj] = nil
+    end
+end)
+
+-- ===================== BUTTON HANDLERS =====================
+
+-- Toggle Enable/Disable
+gui.ToggleBtn.MouseButton1Click:Connect(function()
+    Settings.Enabled = not Settings.Enabled
+
+    if Settings.Enabled then
+        gui.ToggleBtn.BackgroundColor3 = Settings.OnColor
+        gui.ToggleBtn.Text = "🟢 DISABLE"
+        gui.StatusLabel.Text = "Status: ON"
+        gui.StatusLabel.TextColor3 = Settings.OnColor
+        modifyAllPrompts()
+    else
+        gui.ToggleBtn.BackgroundColor3 = Settings.OffColor
+        gui.ToggleBtn.Text = "🔴 ENABLE"
+        gui.StatusLabel.Text = "Status: OFF"
+        gui.StatusLabel.TextColor3 = Settings.OffColor
+        restoreAllPrompts()
+    end
+end)
+
+-- Toggle Auto Interact
+gui.AutoBtn.MouseButton1Click:Connect(function()
+    Settings.AutoInteract = not Settings.AutoInteract
+
+    if Settings.AutoInteract then
+        gui.AutoBtn.BackgroundColor3 = Settings.OnColor
+        gui.AutoBtn.Text = "🟢 Auto Interact"
+    else
+        gui.AutoBtn.BackgroundColor3 = Settings.OffColor
+        gui.AutoBtn.Text = "🔴 Auto Interact"
+    end
+end)
+
+-- ===== Slider Logic (Distance) - Mobile + PC =====
+local sliderDragging = false
+
+local function updateSlider(inputPos)
+    local sliderAbsPos = gui.SliderBg.AbsolutePosition.X
+    local sliderAbsSize = gui.SliderBg.AbsoluteSize.X
+
+    local relative = math.clamp((inputPos - sliderAbsPos) / sliderAbsSize, 0, 1)
+    local value = math.floor(relative * 100)
+
+    Settings.MaxDistance = math.max(value, 5) -- Minimum 5
+    gui.DistLabel.Text = "Distance: " .. Settings.MaxDistance
+    gui.SliderFill.Size = UDim2.new(relative, 0, 1, 0)
+    gui.SliderKnob.Position = UDim2.new(relative, -9, 0.5, -9)
+
+    -- Update semua prompt yang sudah ada
+    if Settings.Enabled then
+        for _, obj in pairs(game:GetDescendants()) do
+            if obj:IsA("ProximityPrompt") then
+                obj.MaxActivationDistance = Settings.MaxDistance
+            end
+        end
+    end
+end
+
+gui.SliderKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        sliderDragging = true
+    end
+end)
+
+gui.SliderBg.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        sliderDragging = true
+        updateSlider(input.Position.X)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if sliderDragging then
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+            updateSlider(input.Position.X)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+        sliderDragging = false
+    end
+end)
+
+-- ===================== AUTO INTERACT LOOP =====================
+local function getClosestPrompt()
+    local character = player.Character
+    if not character then return nil end
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return nil end
+
+    local closest = nil
+    local closestDist = math.huge
+
+    for _, obj in pairs(game:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") and obj.Enabled then
+            local parent = obj.Parent
+            if parent and parent:IsA("BasePart") then
+                local dist = (parent.Position - rootPart.Position).Magnitude
+                if dist < closestDist and dist <= Settings.MaxDistance then
+                    closest = obj
+                    closestDist = dist
+                end
+            elseif parent then
+                local part = parent:FindFirstChildWhichIsA("BasePart")
+                if part then
+                    local dist = (part.Position - rootPart.Position).Magnitude
+                    if dist < closestDist and dist <= Settings.MaxDistance then
+                        closest = obj
+                        closestDist = dist
+                    end
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+-- Auto Interact Loop
+task.spawn(function()
+    while true do
+        task.wait(Settings.AutoInteractDelay)
+
+        if Settings.Enabled and Settings.AutoInteract then
+            local prompt = getClosestPrompt()
+            if prompt then
+                -- Fire prompt
+                pcall(function()
+                    fireproximityprompt(prompt)
+                end)
+
+                -- Fallback jika fireproximityprompt tidak tersedia
+                pcall(function()
+                    prompt:InputHoldBegin()
+                    task.wait(0.05)
+                    prompt:InputHoldEnd()
+                end)
+            end
+        end
+    end
+end)
+
+-- ===================== REFRESH LOOP =====================
+-- Secara berkala refresh prompts (untuk prompt baru / respawn)
+task.spawn(function()
+    while true do
+        task.wait(2)
+        if Settings.Enabled then
+            modifyAllPrompts()
+        end
+    end
+end)
+
+-- ===================== CLEANUP =====================
+player.CharacterRemoving:Connect(function()
+    -- Prompt tetap aktif setelah respawn
+end)
+
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    if Settings.Enabled then
+        modifyAllPrompts()
+    end
+end)
+
+-- ===== Keyboard Shortcut (PC) =====
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    -- Tekan "X" untuk toggle ON/OFF
+    if input.KeyCode == Enum.KeyCode.X then
+        gui.ToggleBtn.MouseButton1Click:Fire() -- Trigger tombol
+    end
+
+    -- Tekan "Z" untuk toggle panel
+    if input.KeyCode == Enum.KeyCode.Z then
+        togglePanel()
+    end
+end)
+
+-- ===== Initial Setup =====
+-- Buka panel otomatis saat pertama
+task.wait(0.5)
+togglePanel()
+
+print("✅ Instant Interact Script Loaded!")
+print("📱 Mobile: Tap title bar to open/close panel")
+print("💻 PC: Press Z to toggle panel, X to toggle ON/OFF")
