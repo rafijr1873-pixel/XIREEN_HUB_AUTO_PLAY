@@ -11,7 +11,7 @@
 -- ╔══════════════════════════════════════════════╗
 -- ║  ⚙️ CONFIGURATION                           ║
 -- ╚══════════════════════════════════════════════╝
-local WALLPAPER_ID = "rbxassetid://6034287594"
+local WALLPAPER_ID = "rbxassetid://5489185461"
 local FLY_SCRIPT_URL = "https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"
 local MUSIC_ID = "rbxassetid://132701552263784"
 local DEFAULT_VOLUME = 0.5
