@@ -1,1301 +1,1533 @@
---[[
-  🎸 AUTO GUITAR [REWORKED] v1.0
-  Based on Auto Drum [Reworked] structure
-  Adapted for Virtual Band Guitar
-  made by me n team
-]]
+-- 🎸 AUTO GUITAR [REWORKED] v1.0
+-- LocalScript / Script (Executor)
 
-if _G._AG then _G._AG=false;task.wait(.6)end
-local plr=game:GetService("Players").LocalPlayer
-local pg=plr:WaitForChild("PlayerGui")
-for _,n in ipairs({"GG","GK"})do if pg:FindFirstChild(n)then pg[n]:Destroy()end end
-task.wait(.1)
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local VIM = game:GetService("VirtualInputManager")
 
-local VIM=game:GetService("VirtualInputManager")
-local UIS=game:GetService("UserInputService")
-local TS=game:GetService("TweenService")
+local plr = Players.LocalPlayer
+local pg = plr:WaitForChild("PlayerGui")
 
-local C={
-    bg=Color3.fromRGB(234,236,241),card=Color3.fromRGB(245,246,250),
-    dark=Color3.fromRGB(32,34,44),t1=Color3.fromRGB(28,30,40),
-    t2=Color3.fromRGB(88,90,108),t3=Color3.fromRGB(142,144,160),
-    t4=Color3.fromRGB(178,180,192),acc=Color3.fromRGB(255,162,32),
-    grn=Color3.fromRGB(48,168,62),red=Color3.fromRGB(192,46,46),
-    blu=Color3.fromRGB(52,112,210),div=Color3.fromRGB(212,214,224),
-    tog=Color3.fromRGB(192,196,210),w=Color3.new(1,1,1),
-    pop=Color3.fromRGB(255,90,40),spc=Color3.fromRGB(200,160,30),
-    gtr=Color3.fromRGB(180,100,20),
-}
+-- Destroy GUI lama
+pcall(function()
+    if pg:FindFirstChild("AutoGuitarGUI") then
+        pg.AutoGuitarGUI:Destroy()
+    end
+end)
 
--- ═══ GUITAR KEYBINDS (sesuai gambar layout) ═══
--- Row 1 PEDALS: ~ ! @ # $ % ^ & * ( ) _ +
--- Row 2       : Q W E R T Y U I O P { } |
--- Row 3 CAPS  : ` 1 2 3 4 5 6 7 8 9 0 - =
--- Row 4       : q w e r t y u i o p [ ] \
--- Row 5 CTRL  : a s d f g h j k l ; ' : "
--- Row 6       : z x c v b n m , . / < > ?
--- Bottom      : ALT, SPACE(MUTE)
+task.wait(0.1)
 
-local K={
-    -- Row 1 (PEDALS) - special chars diakses via shift
-    R1_1=Enum.KeyCode.BackQuote,    -- ~  (shift+`)
-    R1_2=Enum.KeyCode.One,          -- !  (shift+1) → tapi di guitar langsung key
-    R1_3=Enum.KeyCode.Two,          -- @
-    R1_4=Enum.KeyCode.Three,        -- #
-    R1_5=Enum.KeyCode.Four,         -- $
-    R1_6=Enum.KeyCode.Five,         -- %
-    R1_7=Enum.KeyCode.Six,          -- ^
-    R1_8=Enum.KeyCode.Seven,        -- &
-    R1_9=Enum.KeyCode.Eight,        -- *
-    R1_10=Enum.KeyCode.Nine,        -- (
-    R1_11=Enum.KeyCode.Zero,        -- )
-    R1_12=Enum.KeyCode.Minus,       -- _
-    R1_13=Enum.KeyCode.Equals,      -- +
+print("🎸 Auto Guitar: Starting...")
 
-    -- Row 2 (uppercase Q-P etc)
-    R2_1=Enum.KeyCode.Q,
-    R2_2=Enum.KeyCode.W,
-    R2_3=Enum.KeyCode.E,
-    R2_4=Enum.KeyCode.R,
-    R2_5=Enum.KeyCode.T,
-    R2_6=Enum.KeyCode.Y,
-    R2_7=Enum.KeyCode.U,
-    R2_8=Enum.KeyCode.I,
-    R2_9=Enum.KeyCode.O,
-    R2_10=Enum.KeyCode.P,
-    R2_11=Enum.KeyCode.LeftBracket, -- {
-    R2_12=Enum.KeyCode.RightBracket,-- }
-    R2_13=Enum.KeyCode.BackSlash,   -- |
+-- ═══════════════════════════════
+-- VARIABLES
+-- ═══════════════════════════════
 
-    -- Row 3 (CAPS - numbers)
-    R3_1=Enum.KeyCode.BackQuote,    -- `
-    R3_2=Enum.KeyCode.One,
-    R3_3=Enum.KeyCode.Two,
-    R3_4=Enum.KeyCode.Three,
-    R3_5=Enum.KeyCode.Four,
-    R3_6=Enum.KeyCode.Five,
-    R3_7=Enum.KeyCode.Six,
-    R3_8=Enum.KeyCode.Seven,
-    R3_9=Enum.KeyCode.Eight,
-    R3_10=Enum.KeyCode.Nine,
-    R3_11=Enum.KeyCode.Zero,
-    R3_12=Enum.KeyCode.Minus,
-    R3_13=Enum.KeyCode.Equals,
+local isPlaying = false
+local playThread = nil
+local midiData = nil
+local currentSong = ""
+local playSpeed = 1.0
+local totalHits = 0
+local midiProgress = 0
+local midiTime = "0:00/0:00"
+local loopCount = 0
+local autoNext = false
+local shuffleMode = false
+local currentSongIndex = nil
 
-    -- Row 4 (lowercase)
-    R4_1=Enum.KeyCode.Q,
-    R4_2=Enum.KeyCode.W,
-    R4_3=Enum.KeyCode.E,
-    R4_4=Enum.KeyCode.R,
-    R4_5=Enum.KeyCode.T,
-    R4_6=Enum.KeyCode.Y,
-    R4_7=Enum.KeyCode.U,
-    R4_8=Enum.KeyCode.I,
-    R4_9=Enum.KeyCode.O,
-    R4_10=Enum.KeyCode.P,
-    R4_11=Enum.KeyCode.LeftBracket,
-    R4_12=Enum.KeyCode.RightBracket,
-    R4_13=Enum.KeyCode.BackSlash,
+local speedList = {0.5, 0.75, 1.0, 1.25, 1.5, 2.0}
+local speedIndex = 3
 
-    -- Row 5 (CTRL - a-l etc)
-    R5_1=Enum.KeyCode.A,
-    R5_2=Enum.KeyCode.S,
-    R5_3=Enum.KeyCode.D,
-    R5_4=Enum.KeyCode.F,
-    R5_5=Enum.KeyCode.G,
-    R5_6=Enum.KeyCode.H,
-    R5_7=Enum.KeyCode.J,
-    R5_8=Enum.KeyCode.K,
-    R5_9=Enum.KeyCode.L,
-    R5_10=Enum.KeyCode.Semicolon,
-    R5_11=Enum.KeyCode.Quote,
-    R5_12=Enum.KeyCode.Semicolon,   -- :
-    R5_13=Enum.KeyCode.Quote,       -- "
+-- ═══════════════════════════════
+-- SONG LIST
+-- ═══════════════════════════════
 
-    -- Row 6 (z-m etc)
-    R6_1=Enum.KeyCode.Z,
-    R6_2=Enum.KeyCode.X,
-    R6_3=Enum.KeyCode.C,
-    R6_4=Enum.KeyCode.V,
-    R6_5=Enum.KeyCode.B,
-    R6_6=Enum.KeyCode.N,
-    R6_7=Enum.KeyCode.M,
-    R6_8=Enum.KeyCode.Comma,
-    R6_9=Enum.KeyCode.Period,
-    R6_10=Enum.KeyCode.Slash,
-    R6_11=Enum.KeyCode.Comma,       -- <
-    R6_12=Enum.KeyCode.Period,      -- >
-    R6_13=Enum.KeyCode.Slash,       -- ?
-
-    -- Special
-    ALT=Enum.KeyCode.LeftAlt,
-    SPACE=Enum.KeyCode.Space,
-}
-
--- ═══ MIDI NOTE → GUITAR KEY MAPPING ═══
--- Mapping MIDI note number ke KeyCode guitar
--- Range standar gitar: E2(40) sampai E6(88)
--- Layout: setiap oktaf = 12 semitone
--- Kita map ke 6 row × 13 key = 78 posisi
-
-local GM = {}
-
--- Row 1 (PEDALS) - Note 36-48 (C2-C3) - Register terendah
-GM[36]=K.R1_1  -- C2  → ~
-GM[37]=K.R1_2  -- C#2 → !
-GM[38]=K.R1_3  -- D2  → @
-GM[39]=K.R1_4  -- D#2 → #
-GM[40]=K.R1_5  -- E2  → $  (open low E string)
-GM[41]=K.R1_6  -- F2  → %
-GM[42]=K.R1_7  -- F#2 → ^
-GM[43]=K.R1_8  -- G2  → &
-GM[44]=K.R1_9  -- G#2 → *
-GM[45]=K.R1_10 -- A2  → (  (open A string)
-GM[46]=K.R1_11 -- A#2 → )
-GM[47]=K.R1_12 -- B2  → _
-GM[48]=K.R1_13 -- C3  → +
-
--- Row 2 (Q row) - Note 49-61 (C#3-C#4) - Register rendah
-GM[49]=K.R2_1  -- C#3 → Q
-GM[50]=K.R2_2  -- D3  → W
-GM[51]=K.R2_3  -- D#3 → E  (open D string)
-GM[52]=K.R2_4  -- E3  → R
-GM[53]=K.R2_5  -- F3  → T
-GM[54]=K.R2_6  -- F#3 → Y
-GM[55]=K.R2_7  -- G3  → U  (open G string)
-GM[56]=K.R2_8  -- G#3 → I
-GM[57]=K.R2_9  -- A3  → O
-GM[58]=K.R2_10 -- A#3 → P
-GM[59]=K.R2_11 -- B3  → {  (open B string)
-GM[60]=K.R2_12 -- C4  → }  (middle C)
-GM[61]=K.R2_13 -- C#4 → |
-
--- Row 3 (CAPS/numbers) - Note 62-74 (D4-D5) - Register tengah bawah
-GM[62]=K.R3_1  -- D4  → `
-GM[63]=K.R3_2  -- D#4 → 1
-GM[64]=K.R3_3  -- E4  → 2  (open high E string)
-GM[65]=K.R3_4  -- F4  → 3
-GM[66]=K.R3_5  -- F#4 → 4
-GM[67]=K.R3_6  -- G4  → 5
-GM[68]=K.R3_7  -- G#4 → 6
-GM[69]=K.R3_8  -- A4  → 7  (A440)
-GM[70]=K.R3_9  -- A#4 → 8
-GM[71]=K.R3_10 -- B4  → 9
-GM[72]=K.R3_11 -- C5  → 0
-GM[73]=K.R3_12 -- C#5 → -
-GM[74]=K.R3_13 -- D5  → =
-
--- Row 4 (lowercase) - Note 75-87 (D#5-D#6) - Register tengah atas
-GM[75]=K.R4_1  -- D#5 → q
-GM[76]=K.R4_2  -- E5  → w
-GM[77]=K.R4_3  -- F5  → e
-GM[78]=K.R4_4  -- F#5 → r
-GM[79]=K.R4_5  -- G5  → t
-GM[80]=K.R4_6  -- G#5 → y
-GM[81]=K.R4_7  -- A5  → u
-GM[82]=K.R4_8  -- A#5 → i
-GM[83]=K.R4_9  -- B5  → o
-GM[84]=K.R4_10 -- C6  → p
-GM[85]=K.R4_11 -- C#6 → [
-GM[86]=K.R4_12 -- D6  → ]
-GM[87]=K.R4_13 -- D#6 → \
-
--- Row 5 (CTRL/a row) - Note 88-100 - Register tinggi
-GM[88]=K.R5_1  -- E6  → a
-GM[89]=K.R5_2  -- F6  → s
-GM[90]=K.R5_3  -- F#6 → d
-GM[91]=K.R5_4  -- G6  → f
-GM[92]=K.R5_5  -- G#6 → g
-GM[93]=K.R5_6  -- A6  → h
-GM[94]=K.R5_7  -- A#6 → j
-GM[95]=K.R5_8  -- B6  → k
-GM[96]=K.R5_9  -- C7  → l
-GM[97]=K.R5_10 -- C#7 → ;
-GM[98]=K.R5_11 -- D7  → '
-GM[99]=K.R5_12 -- D#7 → :
-GM[100]=K.R5_13-- E7  → "
-
--- Row 6 (z row) - Note 101-113 - Register tertinggi
-GM[101]=K.R6_1 -- F7  → z
-GM[102]=K.R6_2 -- F#7 → x
-GM[103]=K.R6_3 -- G7  → c
-GM[104]=K.R6_4 -- G#7 → v
-GM[105]=K.R6_5 -- A7  → b
-GM[106]=K.R6_6 -- A#7 → n
-GM[107]=K.R6_7 -- B7  → m
-GM[108]=K.R6_8 -- C8  → ,
-GM[109]=K.R6_9 -- C#8 → .
-GM[110]=K.R6_10-- D8  → /
-GM[111]=K.R6_11-- D#8 → <
-GM[112]=K.R6_12-- E8  → >
-GM[113]=K.R6_13-- F8  → ?
-
--- ═══ SONG LIST ═══
-local PS={
-    {n="Eyeless",        a="Slipknot",    t="SK", c=Color3.fromRGB(175,38,38),  p="🔥",
+local Songs = {
+    {n="Eyeless",           a="Slipknot",         c=Color3.fromRGB(175,38,38),  tag="🔥",
      u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Eyeless_Without_metronome_added_1773099208008.mid"},
-    {n="SIC",            a="Slipknot",    t="SK", c=Color3.fromRGB(155,48,48),  p="🔥",
+    {n="SIC",               a="Slipknot",         c=Color3.fromRGB(155,48,48),  tag="🔥",
      u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/sic__Slipknot_1773144622338.mid"},
-    {n="Nightmare",      a="Avenged Sevenfold",t="A7X",c=Color3.fromRGB(48,48,152),
+    {n="Nightmare",         a="Avenged Sevenfold", c=Color3.fromRGB(48,48,152),
      u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Nightmare__Avenged_Sevenfold_1773149185671.mid"},
-    {n="People=Shit",    a="Slipknot",    t="SK", c=Color3.fromRGB(138,58,28),
+    {n="People=Shit",       a="Slipknot",         c=Color3.fromRGB(138,58,28),
      u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/People__Shit__Slipknot_1773151767980.mid"},
-    {n="Holy Wars",      a="Megadeth",    t="MG", c=Color3.fromRGB(38,112,40),
+    {n="Holy Wars",         a="Megadeth",         c=Color3.fromRGB(38,112,40),
      u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Holy_Wars_The_Punishment_Due__Megadeth_Drums_1773181360476.mid"},
-    {n="Post American",  a="Megadeth",    t="MG", c=Color3.fromRGB(40,105,50),
-     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Post_American_World__Megadeth_Drum_Set_1773289236483.mid"},
-    {n="Death Fr.Within",a="Megadeth",    t="MG", c=Color3.fromRGB(34,96,42),
-     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Death_From_Within__Megadeth_Drum_Set_1773288959748.mid"},
-    {n="Duality",        a="Slipknot",    t="SK", c=Color3.fromRGB(162,40,40),
+    {n="Duality",           a="Slipknot",         c=Color3.fromRGB(162,40,40),
      u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Slipknot__Duality_1773289698947.mid"},
-    {n="Before I Forget",a="Slipknot",    t="SK", c=Color3.fromRGB(145,36,50),
+    {n="Before I Forget",   a="Slipknot",         c=Color3.fromRGB(145,36,50),
      u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Slipknot__Before_I_Forget_1773291132877.mid"},
-    {n="Unsainted",      a="Slipknot",    t="SK", c=Color3.fromRGB(125,30,58),
-     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Unsainted__Slipknot_Drums_Only_1773289884120.mid"},
-    {n="Disasterpiece",  a="Slipknot",    t="SK", c=Color3.fromRGB(115,22,22),
-     u="https://github.com/rafijr1873-pixel/Auto.play.midi/raw/refs/heads/main/Slipknot__Disasterpiece_1773291889398.mid"},
-    {n="Wait And Bleed", a="Slipknot",    t="SK", c=Color3.fromRGB(135,30,30),
+    {n="Wait And Bleed",    a="Slipknot",         c=Color3.fromRGB(135,30,30),
      u="https://github.com/rafijr1873-pixel/Auto.PlayX/raw/refs/heads/main/Wait_And_Bleed__Slipknot_1773730571749.mid"},
-    {n="Jazz Crimes",    a="Jazz Solo",   t="OT", c=Color3.fromRGB(180,140,40),
+    {n="Jazz Crimes",       a="Jazz Solo",        c=Color3.fromRGB(180,140,40),
      u="https://github.com/rafijr1873-pixel/Auto.PlayX/raw/refs/heads/main/Jazz_Crimes_drum_solo_1773728534948.mid"},
-    {n="Everything Freeze",a="UNDEAD CORP.",t="OT",c=Color3.fromRGB(60,20,80),
-     u="https://github.com/rafijr1873-pixel/Auto.PlayX/raw/refs/heads/main/Everything_Will_Freeze__UNDEAD_CORPERATION_DOUJIN_WORKS_1773730628821.mid"},
-    {n="STRYKE Solo",    a="Drum Solo",   t="OT", c=Color3.fromRGB(170,130,35),
-     u="https://github.com/rafijr1873-pixel/Auto.PlayX/raw/refs/heads/main/STRYKE_Percussion__Drum_Solo_1773728655776.mid"},
-    {n="Thru Fire&Flames",a="DragonForce",t="OT", c=Color3.fromRGB(200,50,10),  p="⭐",
+    {n="Thru Fire&Flames",  a="DragonForce",      c=Color3.fromRGB(200,50,10),  tag="⭐",
      u="https://github.com/rafijr1873-pixel/Auto.PlayX/raw/refs/heads/main/Dragonforce__Through_the_Fire_and_Flames_DRUMSET_1773747916038.mid"},
 }
 
--- ═══ STATE ═══
-_G._AG=false
-local mObj,mLd,cSong=nil,false,""
-local guiOn,kC=true,nil
-local SP={.5,.75,1,1.25,1.5,2}
-local sI,sM=3,1
-local aNxt,shuf=false,false
-local tH,lps,mPr,mTm=0,0,0,"0:00/0:00"
-local rH,aSg={},nil
-local secN="IDLE"
-local doLoad
+-- ═══════════════════════════════
+-- GUITAR KEY MAPPING
+-- ═══════════════════════════════
 
--- ═══ ENGINE ═══
-local RNG=Random.new(tick())
+-- MIDI note → KeyCode
+-- 6 row x 13 key = 78 posisi
+-- Range: note 36 (C2) sampai 113 (F8)
 
-local function nps()
-    local n=tick()
-    while #rH>0 and n-rH[1]>3 do table.remove(rH,1)end
-    return math.floor(#rH/3*10)/10
-end
+local NoteMap = {
+    -- Row 1: note 36-48
+    [36]=Enum.KeyCode.BackQuote,
+    [37]=Enum.KeyCode.One,
+    [38]=Enum.KeyCode.Two,
+    [39]=Enum.KeyCode.Three,
+    [40]=Enum.KeyCode.Four,
+    [41]=Enum.KeyCode.Five,
+    [42]=Enum.KeyCode.Six,
+    [43]=Enum.KeyCode.Seven,
+    [44]=Enum.KeyCode.Eight,
+    [45]=Enum.KeyCode.Nine,
+    [46]=Enum.KeyCode.Zero,
+    [47]=Enum.KeyCode.Minus,
+    [48]=Enum.KeyCode.Equals,
+    -- Row 2: note 49-61
+    [49]=Enum.KeyCode.Q,
+    [50]=Enum.KeyCode.W,
+    [51]=Enum.KeyCode.E,
+    [52]=Enum.KeyCode.R,
+    [53]=Enum.KeyCode.T,
+    [54]=Enum.KeyCode.Y,
+    [55]=Enum.KeyCode.U,
+    [56]=Enum.KeyCode.I,
+    [57]=Enum.KeyCode.O,
+    [58]=Enum.KeyCode.P,
+    [59]=Enum.KeyCode.LeftBracket,
+    [60]=Enum.KeyCode.RightBracket,
+    [61]=Enum.KeyCode.BackSlash,
+    -- Row 3: note 62-74
+    [62]=Enum.KeyCode.A,
+    [63]=Enum.KeyCode.S,
+    [64]=Enum.KeyCode.D,
+    [65]=Enum.KeyCode.F,
+    [66]=Enum.KeyCode.G,
+    [67]=Enum.KeyCode.H,
+    [68]=Enum.KeyCode.J,
+    [69]=Enum.KeyCode.K,
+    [70]=Enum.KeyCode.L,
+    [71]=Enum.KeyCode.Semicolon,
+    [72]=Enum.KeyCode.Quote,
+    [73]=Enum.KeyCode.Return,
+    [74]=Enum.KeyCode.Backspace,
+    -- Row 4: note 75-87
+    [75]=Enum.KeyCode.Z,
+    [76]=Enum.KeyCode.X,
+    [77]=Enum.KeyCode.C,
+    [78]=Enum.KeyCode.V,
+    [79]=Enum.KeyCode.B,
+    [80]=Enum.KeyCode.N,
+    [81]=Enum.KeyCode.M,
+    [82]=Enum.KeyCode.Comma,
+    [83]=Enum.KeyCode.Period,
+    [84]=Enum.KeyCode.Slash,
+    [85]=Enum.KeyCode.F1,
+    [86]=Enum.KeyCode.F2,
+    [87]=Enum.KeyCode.F3,
+    -- Row 5: note 88-100
+    [88]=Enum.KeyCode.F4,
+    [89]=Enum.KeyCode.F5,
+    [90]=Enum.KeyCode.F6,
+    [91]=Enum.KeyCode.F7,
+    [92]=Enum.KeyCode.F8,
+    [93]=Enum.KeyCode.F9,
+    [94]=Enum.KeyCode.F10,
+    [95]=Enum.KeyCode.F11,
+    [96]=Enum.KeyCode.F12,
+    [97]=Enum.KeyCode.Insert,
+    [98]=Enum.KeyCode.Home,
+    [99]=Enum.KeyCode.PageUp,
+    [100]=Enum.KeyCode.Delete,
+    -- Row 6: note 101-113
+    [101]=Enum.KeyCode.End,
+    [102]=Enum.KeyCode.PageDown,
+    [103]=Enum.KeyCode.NumLock,
+    [104]=Enum.KeyCode.KeypadDivide,
+    [105]=Enum.KeyCode.KeypadMultiply,
+    [106]=Enum.KeyCode.KeypadMinus,
+    [107]=Enum.KeyCode.KeypadPlus,
+    [108]=Enum.KeyCode.KeypadEnter,
+    [109]=Enum.KeyCode.Keypad0,
+    [110]=Enum.KeyCode.Keypad1,
+    [111]=Enum.KeyCode.Keypad2,
+    [112]=Enum.KeyCode.Keypad3,
+    [113]=Enum.KeyCode.Keypad4,
+}
 
--- Press key dengan timing natural guitar
-local function pr(k)
-    if typeof(k)~="EnumItem" then return end
-    -- Guitar: press & release cepat (strumming feel)
-    local hold = RNG:NextInteger(30,70)/1000
-    pcall(function()
-        VIM:SendKeyEvent(true,k,false,game)
-    end)
-    task.wait(hold)
-    pcall(function()
-        VIM:SendKeyEvent(false,k,false,game)
-    end)
-    tH=tH+1
-    local n=tick()
-    rH[#rH+1]=n
-    while #rH>0 and n-rH[1]>3 do table.remove(rH,1)end
-end
+-- ═══════════════════════════════
+-- MIDI PARSER
+-- ═══════════════════════════════
 
-local function ok() return _G._AG end
+local function parseMIDI(raw)
+    if not raw or #raw < 14 then
+        return nil, "File terlalu kecil"
+    end
 
-local function fmt(s)
-    s=math.max(0,math.floor(s))
-    return string.format("%d:%02d",math.floor(s/60),s%60)
-end
+    local pos = 1
+    local len = #raw
 
--- ═══ MIDI PARSER (sama persis dari Auto Drum) ═══
-local M={}
-function M.parse(r)
-    if not r or #r<14 then return nil,"File terlalu kecil"end
-    local p,l=1,#r
-    local function rb()if p>l then error("EOF")end;local b=string.byte(r,p);p=p+1;return b end
-    local function rn(n)local v=0;for _=1,n do v=v*256+rb()end;return v end
-    local function rs(n)if p+n-1>l then error("EOF")end;local s=r:sub(p,p+n-1);p=p+n;return s end
-    local function rv()
-        local v,c=0,0
-        repeat
-            local b=rb();v=v*128+(b%128);c=c+1
-            if c>4 then error("VLQ overflow")end
-        until b<128
+    local function readByte()
+        if pos > len then error("EOF") end
+        local b = string.byte(raw, pos)
+        pos = pos + 1
+        return b
+    end
+
+    local function readInt(bytes)
+        local v = 0
+        for _ = 1, bytes do
+            v = v * 256 + readByte()
+        end
         return v
     end
-    local h=rs(4)
-    if h~="MThd" then return nil,"Bukan file MIDI (header: "..tostring(h)..")"end
-    local hl=rn(4);rn(2)
-    local nT=rn(2)
-    local dv=rn(2)
-    if hl>6 then p=p+(hl-6)end
-    if dv>=32768 then return nil,"Format SMPTE tidak didukung"end
-    local ppq=dv
-    local ns,ts={},{}
-    for t=1,nT do
-        if p+8>l then break end
-        local th=rs(4)
-        if th~="MTrk" then return nil,"Track header salah"end
-        local tl=rn(4)
-        local te=p+tl
-        local at,rn2=0,0
-        while p<te and p<=l do
-            local d=rv();at=at+d
-            if p>l then break end
-            local pk=string.byte(r,p)
-            if not pk then break end
-            local st
-            if pk>=128 then
-                st=rb()
-                if st<0xF0 then rn2=st end
-            else
-                st=rn2
-                if st==0 then rb();break end
+
+    local function readStr(bytes)
+        if pos + bytes - 1 > len then error("EOF") end
+        local s = raw:sub(pos, pos + bytes - 1)
+        pos = pos + bytes
+        return s
+    end
+
+    local function readVLQ()
+        local v = 0
+        local count = 0
+        repeat
+            local b = readByte()
+            v = v * 128 + (b % 128)
+            count = count + 1
+            if count > 4 then error("VLQ too long") end
+        until b < 128
+        return v
+    end
+
+    -- Cek header
+    local header = readStr(4)
+    if header ~= "MThd" then
+        return nil, "Bukan file MIDI! Header: " .. tostring(header)
+    end
+
+    local headerLen = readInt(4)
+    readInt(2) -- format
+    local numTracks = readInt(2)
+    local ppq = readInt(2)
+
+    if headerLen > 6 then pos = pos + (headerLen - 6) end
+    if ppq >= 32768 then return nil, "Format SMPTE tidak didukung" end
+
+    local allNotes = {}
+    local tempoMap = {}
+
+    -- Parse setiap track
+    for _ = 1, numTracks do
+        if pos + 8 > len then break end
+
+        local ok, err = pcall(function()
+            local trackHeader = readStr(4)
+            if trackHeader ~= "MTrk" then
+                error("Track header salah: " .. tostring(trackHeader))
             end
-            local hi=math.floor(st/16)
-            if hi==9 then
-                local n2,v2=rb(),rb()
-                if v2>0 and #ns<50000 then
-                    ns[#ns+1]={at,n2,v2,st%16}
+
+            local trackLen = readInt(4)
+            local trackEnd = pos + trackLen
+            local absoluteTick = 0
+            local runningStatus = 0
+
+            while pos < trackEnd and pos <= len do
+                local delta = readVLQ()
+                absoluteTick = absoluteTick + delta
+
+                if pos > len then break end
+
+                local byte1 = string.byte(raw, pos)
+                if not byte1 then break end
+
+                local statusByte
+                if byte1 >= 128 then
+                    statusByte = readByte()
+                    if statusByte < 0xF0 then
+                        runningStatus = statusByte
+                    end
+                else
+                    statusByte = runningStatus
+                    if statusByte == 0 then break end
                 end
-            elseif hi==8 or hi==10 or hi==11 or hi==14 then rb();rb()
-            elseif hi==12 or hi==13 then rb()
-            elseif st==0xFF then
-                local mt=rb();local ml=rv()
-                if mt==0x51 and ml>=3 then
-                    local us=0
-                    for _=1,3 do us=us*256+rb()end
-                    ts[#ts+1]={at,us}
-                    if ml>3 then p=p+(ml-3)end
-                else p=p+ml end
-            elseif st==0xF0 or st==0xF7 then p=p+rv()
-            else p=te end
+
+                local msgType = math.floor(statusByte / 16)
+                local channel = statusByte % 16
+
+                if statusByte == 0xFF then
+                    -- Meta event
+                    local metaType = readByte()
+                    local metaLen = readVLQ()
+                    if metaType == 0x51 and metaLen >= 3 then
+                        local us = readByte() * 65536 + readByte() * 256 + readByte()
+                        table.insert(tempoMap, {tick = absoluteTick, tempo = us})
+                        if metaLen > 3 then pos = pos + (metaLen - 3) end
+                    else
+                        pos = pos + metaLen
+                    end
+                elseif statusByte == 0xF0 or statusByte == 0xF7 then
+                    -- SysEx
+                    pos = pos + readVLQ()
+                elseif msgType == 9 then
+                    -- Note On
+                    local note = readByte()
+                    local velocity = readByte()
+                    if velocity > 0 then
+                        table.insert(allNotes, {
+                            tick = absoluteTick,
+                            note = note,
+                            velocity = velocity,
+                            channel = channel
+                        })
+                    end
+                elseif msgType == 8 then
+                    readByte(); readByte() -- Note Off
+                elseif msgType == 10 or msgType == 11 or msgType == 14 then
+                    readByte(); readByte()
+                elseif msgType == 12 or msgType == 13 then
+                    readByte()
+                else
+                    pos = trackEnd
+                end
+            end
+
+            pos = trackEnd
+        end)
+
+        if not ok then
+            warn("Track parse error:", err)
+            -- Coba skip ke track berikutnya
+            break
         end
-        p=te
-    end
-    if #ns==0 then return nil,"Tidak ada note ditemukan"end
-    table.sort(ns,function(a,b)return a[1]<b[1]end)
-    table.sort(ts,function(a,b)return a[1]<b[1]end)
-    return ns,ts,ppq
-end
-
-function M.build(ns,ts,ppq)
-    -- Deteksi channel guitar (bukan drum/channel 9)
-    local chanCount={}
-    for _,n in ipairs(ns)do
-        local ch=n[4]
-        chanCount[ch]=(chanCount[ch]or 0)+1
     end
 
-    -- Cari channel dengan note terbanyak (bukan channel 9/drum)
-    local bestCh,bestCount=nil,0
-    for ch,cnt in pairs(chanCount)do
-        if ch~=9 and cnt>bestCount then
-            bestCh=ch;bestCount=cnt
+    if #allNotes == 0 then
+        return nil, "Tidak ada note ditemukan di file MIDI ini"
+    end
+
+    -- Sort by tick
+    table.sort(allNotes, function(a, b) return a.tick < b.tick end)
+    table.sort(tempoMap, function(a, b) return a.tick < b.tick end)
+
+    -- Default tempo jika tidak ada
+    if #tempoMap == 0 or tempoMap[1].tick ~= 0 then
+        table.insert(tempoMap, 1, {tick = 0, tempo = 500000})
+    end
+
+    -- Build tempo timeline
+    local tempoTimeline = {}
+    local cumTime = 0
+    local prevTick = 0
+    local prevTempo = 500000
+
+    for _, tc in ipairs(tempoMap) do
+        cumTime = cumTime + (tc.tick - prevTick) * prevTempo / ppq / 1000000
+        table.insert(tempoTimeline, {
+            tick = tc.tick,
+            timeSeconds = cumTime,
+            tempo = tc.tempo
+        })
+        prevTick = tc.tick
+        prevTempo = tc.tempo
+    end
+
+    -- Fungsi konversi tick ke detik
+    local function tickToSeconds(tick)
+        local t = 0
+        local p = 0
+        local m = 500000
+        for _, entry in ipairs(tempoTimeline) do
+            if entry.tick > tick then break end
+            t = entry.timeSeconds
+            p = entry.tick
+            m = entry.tempo
+        end
+        return t + (tick - p) * m / ppq / 1000000
+    end
+
+    -- Deteksi channel terbaik (bukan drum/channel 9)
+    local channelCount = {}
+    for _, n in ipairs(allNotes) do
+        channelCount[n.channel] = (channelCount[n.channel] or 0) + 1
+    end
+
+    local bestChannel = nil
+    local bestCount = 0
+    for ch, cnt in pairs(channelCount) do
+        if ch ~= 9 and cnt > bestCount then
+            bestChannel = ch
+            bestCount = cnt
         end
     end
 
-    -- Kalau semua channel 9 (drum midi), pakai semua
-    local useDrum=false
-    if not bestCh then
-        bestCh=9;useDrum=true
+    -- Kalau semua drum, pakai channel 9
+    if not bestChannel then
+        bestChannel = 9
     end
 
-    -- Build note events dengan guitar mapping
-    local dn={}
-    for _,n in ipairs(ns)do
-        local ch=n[4]
-        -- Ambil semua channel non-drum, atau kalau terpaksa pakai drum
-        if (not useDrum and ch~=9) or (useDrum and ch==9) then
-            local note=n[2]
-            local k=GM[note]
+    -- Build sequence
+    local sequence = {}
+    local groupByTick = {}
+    local tickList = {}
+
+    for _, n in ipairs(allNotes) do
+        if n.channel == bestChannel or (bestChannel == 9 and n.channel == 9) then
+            local note = n.note
+            local key = NoteMap[note]
+
             -- Transpose kalau keluar range
-            if not k then
-                local shifted=note
-                while shifted>113 do shifted=shifted-12 end
-                while shifted<36  do shifted=shifted+12 end
-                k=GM[shifted]
+            if not key then
+                local shifted = note
+                while shifted > 113 do shifted = shifted - 12 end
+                while shifted < 36 do shifted = shifted + 12 end
+                key = NoteMap[shifted]
             end
-            if k then
-                dn[#dn+1]={t=n[1],k=k,note=note}
+
+            if key then
+                if not groupByTick[n.tick] then
+                    groupByTick[n.tick] = {}
+                    table.insert(tickList, n.tick)
+                end
+                -- Cegah duplikat
+                local dup = false
+                for _, k in ipairs(groupByTick[n.tick]) do
+                    if k == key then dup = true; break end
+                end
+                if not dup then
+                    table.insert(groupByTick[n.tick], key)
+                end
             end
         end
     end
 
-    if #dn==0 then return nil,0,0,0 end
+    table.sort(tickList)
 
-    -- Build tempo map
-    if #ts==0 or ts[1][1]~=0 then
-        table.insert(ts,1,{0,500000})
-    end
-    local tl={}
-    local cs,pt,pm=0,0,500000
-    for _,tc in ipairs(ts)do
-        cs=cs+(tc[1]-pt)*pm/ppq/1e6
-        tl[#tl+1]={t=tc[1],s=cs,m=tc[2]}
-        pt=tc[1];pm=tc[2]
+    for _, tick in ipairs(tickList) do
+        table.insert(sequence, {
+            time = tickToSeconds(tick),
+            keys = groupByTick[tick]
+        })
     end
 
-    local function t2s(tk)
-        local s,p2,m2=0,0,500000
-        for _,t in ipairs(tl)do
-            if t.t>tk then break end
-            s=t.s;p2=t.t;m2=t.m
-        end
-        return s+(tk-p2)*m2/ppq/1e6
+    if #sequence == 0 then
+        return nil, "Tidak ada note yang bisa dimapping ke guitar keys"
     end
 
-    -- Group notes di tick yang sama (chord)
-    local gr,tks={},{}
-    for _,d in ipairs(dn)do
-        local t=d.t
-        if not gr[t]then gr[t]={};tks[#tks+1]=t end
-        -- Cegah duplikat key di chord yang sama
-        local dup=false
-        for _,k in ipairs(gr[t])do if k==d.k then dup=true end end
-        if not dup then gr[t][#gr[t]+1]=d.k end
-    end
-    table.sort(tks)
+    local duration = sequence[#sequence].time
+    local bpm = math.floor(60000000 / (tempoMap[1].tempo or 500000) + 0.5)
+    local noteCount = #sequence
 
-    local sq={}
-    for _,t in ipairs(tks)do
-        sq[#sq+1]={time=t2s(t),keys=gr[t]}
-    end
-
-    local dur=sq[#sq] and sq[#sq].time or 0
-    local bpm=math.floor(60e6/(ts[1][2]or 5e5)+.5)
-    return sq,dur,bpm,#dn
+    return {
+        sequence = sequence,
+        duration = duration,
+        bpm = bpm,
+        noteCount = noteCount
+    }
 end
 
--- ═══ FETCH ═══
-local function fetch(u)
-    local b
-    pcall(function()
+-- ═══════════════════════════════
+-- FETCH MIDI
+-- ═══════════════════════════════
+
+local function fetchFile(url)
+    local result = nil
+    local ok, err = pcall(function()
         if syn and syn.request then
-            b=syn.request({Url=u,Method="GET"}).Body
+            result = syn.request({Url=url, Method="GET"}).Body
         elseif http_request then
-            b=http_request({Url=u,Method="GET"}).Body
+            result = http_request({Url=url, Method="GET"}).Body
         elseif request then
-            b=request({Url=u,Method="GET"}).Body
+            result = request({Url=url, Method="GET"}).Body
         elseif httpget then
-            b=httpget(u)
+            result = httpget(url)
         else
-            b=game:HttpGet(u)
+            result = game:HttpGet(url)
         end
     end)
-    return b
+    if not ok then
+        warn("Fetch error:", err)
+        return nil
+    end
+    return result
 end
 
-local function loadMd(u,cb)
-    if not u then return nil,"No URL"end
-    cb("Mengunduh file .mid...")
-    local r=fetch(u)
-    if not r then return nil,"Gagal download. Cek URL!"end
-    cb("Parsing binary MIDI...")
-    local ns,ts,ppq=M.parse(r)
-    if not ns then return nil,ts end
-    cb("Building sequence...")
-    local sq,dur,bpm,cnt=M.build(ns,ts,ppq)
-    if not sq then return nil,"Build gagal, tidak ada note guitar"end
-    return{sq=sq,dur=dur,bpm=bpm,cnt=cnt}
-end
+-- ═══════════════════════════════
+-- PLAY KEY
+-- ═══════════════════════════════
 
--- ═══ MIDI LOOP ═══
-local function midiLp()
-    if not mObj or #mObj.sq==0 then
-        secN="NO MIDI";task.wait(1);return
-    end
-    secN="♫ "..cSong
-    local sq=mObj.sq
-    local totalTime=mObj.dur/sM
-    local st=tick()
-
-    for i=1,#sq do
-        if not ok()then mPr=0;return end
-        -- Timing presisi
-        local tg=st+sq[i].time/sM
-        local now=tick()
-        if tg>now+0.002 then
-            task.wait(tg-now)
-        end
-        if not ok()then mPr=0;return end
-
-        -- Press semua key di chord ini
-        local keys=sq[i].keys
-        if #keys==1 then
-            -- Single note
-            pr(keys[1])
-        else
-            -- Chord: press bersamaan (strumming)
-            for _,k in ipairs(keys)do
-                task.spawn(function() pr(k) end)
-            end
-            task.wait(0.05)
-        end
-
-        mPr=i/#sq
-        mTm=fmt(tick()-st).."/"..fmt(totalTime)
-    end
-
-    lps=lps+1
-    mPr=1
-
-    -- Auto next
-    if aNxt and ok()then
-        secN="⏭ Next..."
-        task.wait(0.8)
-        if ok()then
-            -- Cari lagu berikutnya
-            local nextIdx=nil
-            if aSg then
-                nextIdx=(aSg%#PS)+1
-            else
-                nextIdx=1
-            end
-            if shuf then
-                nextIdx=RNG:NextInteger(1,#PS)
-            end
-            _G._AG=false
-            task.wait(0.15)
-            aSg=nextIdx
-            doLoad(PS[nextIdx].u,PS[nextIdx].n)
-        end
-    else
-        secN="↻ Done"
-        task.wait(0.5)
-    end
-end
-
--- ═══ PLAY / STOP ═══
-local playThread=nil
-
-local function go()
-    if _G._AG then return end
-    _G._AG=true
-    tH=0;lps=0;mPr=0;secN="STARTING"
-    playThread=task.spawn(function()
-        while _G._AG do
-            pcall(midiLp)
-        end
+local function pressKey(keyCode)
+    pcall(function()
+        VIM:SendKeyEvent(true, keyCode, false, game)
+        task.wait(0.05)
+        VIM:SendKeyEvent(false, keyCode, false, game)
     end)
+    totalHits = totalHits + 1
 end
 
-local function stp()
-    _G._AG=false
-    secN="IDLE"
-    mPr=0
+-- ═══════════════════════════════
+-- PLAY LOOP
+-- ═══════════════════════════════
+
+local function formatTime(s)
+    s = math.max(0, math.floor(s))
+    return string.format("%d:%02d", math.floor(s/60), s%60)
+end
+
+local function stopPlay()
+    isPlaying = false
     if playThread then
         pcall(function() task.cancel(playThread) end)
-        playThread=nil
+        playThread = nil
     end
-    -- Release semua key
-    pcall(function()
-        for _,v in pairs(K)do
-            VIM:SendKeyEvent(false,v,false,game)
-        end
+    midiProgress = 0
+end
+
+local function startPlay()
+    if isPlaying then return end
+    if not midiData then return end
+
+    isPlaying = true
+    totalHits = 0
+
+    playThread = task.spawn(function()
+        repeat
+            local seq = midiData.sequence
+            local totalTime = midiData.duration / playSpeed
+            local startTime = tick()
+
+            for i = 1, #seq do
+                if not isPlaying then
+                    midiProgress = 0
+                    return
+                end
+
+                local event = seq[i]
+                local targetTime = startTime + (event.time / playSpeed)
+                local now = tick()
+
+                if targetTime > now + 0.001 then
+                    task.wait(targetTime - now)
+                end
+
+                if not isPlaying then
+                    midiProgress = 0
+                    return
+                end
+
+                -- Press keys
+                for _, key in ipairs(event.keys) do
+                    task.spawn(function()
+                        pressKey(key)
+                    end)
+                end
+
+                midiProgress = i / #seq
+                midiTime = formatTime(tick() - startTime) .. "/" .. formatTime(totalTime)
+            end
+
+            loopCount = loopCount + 1
+            midiProgress = 1
+
+            if not autoNext then
+                task.wait(0.5)
+            else
+                -- Auto next song
+                task.wait(0.5)
+                if currentSongIndex then
+                    local nextIdx
+                    if shuffleMode then
+                        nextIdx = math.random(1, #Songs)
+                    else
+                        nextIdx = (currentSongIndex % #Songs) + 1
+                    end
+                    currentSongIndex = nextIdx
+                    -- Will be handled by GUI
+                end
+            end
+
+        until not isPlaying or not autoNext
+
+        isPlaying = false
+        midiProgress = 0
     end)
 end
 
--- ═══ GUI UTILS ═══
-local function cr(p,r) Instance.new("UICorner",p).CornerRadius=UDim.new(0,r or 4) end
+-- ═══════════════════════════════
+-- GUI
+-- ═══════════════════════════════
 
-local function ln(p,s,ps,t,cl,ts,fn)
-    local l=Instance.new("TextLabel",p)
-    l.Size=s or UDim2.new(1,0,0,12)
-    l.Position=ps or UDim2.new()
-    l.BackgroundTransparency=1
-    l.Text=t or""
-    l.TextColor3=cl or C.t1
-    l.TextSize=ts or 9
-    l.Font=fn or Enum.Font.Gotham
-    l.TextXAlignment=Enum.TextXAlignment.Left
-    l.TextTruncate=Enum.TextTruncate.AtEnd
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoGuitarGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = pg
+
+print("🎸 Auto Guitar: GUI Creating...")
+
+-- Warna
+local COL = {
+    bg      = Color3.fromRGB(22, 22, 28),
+    panel   = Color3.fromRGB(30, 30, 38),
+    card    = Color3.fromRGB(38, 38, 48),
+    border  = Color3.fromRGB(55, 55, 70),
+    white   = Color3.fromRGB(255, 255, 255),
+    gray    = Color3.fromRGB(140, 140, 160),
+    green   = Color3.fromRGB(48, 200, 80),
+    red     = Color3.fromRGB(220, 60, 60),
+    blue    = Color3.fromRGB(60, 130, 255),
+    orange  = Color3.fromRGB(255, 160, 30),
+    purple  = Color3.fromRGB(150, 80, 255),
+    yellow  = Color3.fromRGB(255, 220, 50),
+}
+
+-- Helper
+local function corner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius or 6)
+    c.Parent = parent
+end
+
+local function stroke(parent, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color or COL.border
+    s.Thickness = thickness or 1
+    s.Parent = parent
+end
+
+local function label(parent, text, size, color, bold, xAlign)
+    local l = Instance.new("TextLabel")
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextSize = size or 13
+    l.TextColor3 = color or COL.white
+    l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+    l.TextXAlignment = xAlign or Enum.TextXAlignment.Left
+    l.Size = UDim2.new(1, 0, 1, 0)
+    l.Parent = parent
     return l
 end
 
-local function bt(p,s,ps,bg,t,tc,ts)
-    local b=Instance.new("TextButton",p)
-    b.Size=s;b.Position=ps
-    b.BackgroundColor3=bg
-    b.Text=t
-    b.TextColor3=tc or C.w
-    b.TextSize=ts or 8
-    b.Font=Enum.Font.GothamBold
-    b.AutoButtonColor=true
-    b.BorderSizePixel=0
-    cr(b,4)
+local function button(parent, text, size, pos, bgColor, textColor, textSize)
+    local b = Instance.new("TextButton")
+    b.Size = size
+    b.Position = pos
+    b.BackgroundColor3 = bgColor or COL.card
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = textColor or COL.white
+    b.TextSize = textSize or 13
+    b.Font = Enum.Font.GothamBold
+    b.Parent = parent
+    corner(b, 6)
     return b
 end
 
-local function dv(p,s,ps)
-    local d=Instance.new("Frame",p)
-    d.Size=s;d.Position=ps
-    d.BackgroundColor3=C.div
-    d.BorderSizePixel=0
-    return d
+-- ═══ TOGGLE BUTTON ═══
+local ToggleBtn = Instance.new("ImageButton")
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Size = UDim2.new(0, 48, 0, 48)
+ToggleBtn.Position = UDim2.new(0, 12, 0.5, -24)
+ToggleBtn.BackgroundColor3 = COL.panel
+ToggleBtn.BorderSizePixel = 0
+ToggleBtn.ZIndex = 100
+ToggleBtn.Parent = ScreenGui
+corner(ToggleBtn, 24)
+stroke(ToggleBtn, COL.purple, 2)
+
+local toggleIcon = Instance.new("TextLabel")
+toggleIcon.Size = UDim2.new(1, 0, 1, 0)
+toggleIcon.BackgroundTransparency = 1
+toggleIcon.Text = "🎸"
+toggleIcon.TextSize = 22
+toggleIcon.Font = Enum.Font.GothamBold
+toggleIcon.TextXAlignment = Enum.TextXAlignment.Center
+toggleIcon.TextYAlignment = Enum.TextYAlignment.Center
+toggleIcon.ZIndex = 101
+toggleIcon.Parent = ToggleBtn
+
+-- ═══ MAIN FRAME ═══
+local W, H = 420, 500
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, W, 0, H)
+MainFrame.Position = UDim2.new(0.5, -W/2, 0.5, -H/2)
+MainFrame.BackgroundColor3 = COL.bg
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = false
+MainFrame.ZIndex = 10
+MainFrame.Parent = ScreenGui
+corner(MainFrame, 10)
+stroke(MainFrame, COL.border, 1.5)
+
+-- ═══ TITLE BAR ═══
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 44)
+TitleBar.BackgroundColor3 = COL.panel
+TitleBar.BorderSizePixel = 0
+TitleBar.ZIndex = 11
+TitleBar.Parent = MainFrame
+corner(TitleBar, 10)
+
+-- Fix sudut bawah title bar
+local TitleFix = Instance.new("Frame")
+TitleFix.Size = UDim2.new(1, 0, 0, 10)
+TitleFix.Position = UDim2.new(0, 0, 1, -10)
+TitleFix.BackgroundColor3 = COL.panel
+TitleFix.BorderSizePixel = 0
+TitleFix.ZIndex = 11
+TitleFix.Parent = TitleBar
+
+local TitleIcon = Instance.new("TextLabel")
+TitleIcon.Size = UDim2.new(0, 30, 0, 30)
+TitleIcon.Position = UDim2.new(0, 10, 0, 7)
+TitleIcon.BackgroundTransparency = 1
+TitleIcon.Text = "🎸"
+TitleIcon.TextSize = 20
+TitleIcon.TextXAlignment = Enum.TextXAlignment.Center
+TitleIcon.ZIndex = 12
+TitleIcon.Parent = TitleBar
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(0, 200, 0, 22)
+TitleText.Position = UDim2.new(0, 44, 0, 5)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "Auto Guitar"
+TitleText.TextSize = 15
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextColor3 = COL.white
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.ZIndex = 12
+TitleText.Parent = TitleBar
+
+local TitleSub = Instance.new("TextLabel")
+TitleSub.Size = UDim2.new(0, 200, 0, 14)
+TitleSub.Position = UDim2.new(0, 44, 0, 25)
+TitleSub.BackgroundTransparency = 1
+TitleSub.Text = "Virtual Band Guitar Player"
+TitleSub.TextSize = 10
+TitleSub.Font = Enum.Font.Gotham
+TitleSub.TextColor3 = COL.gray
+TitleSub.TextXAlignment = Enum.TextXAlignment.Left
+TitleSub.ZIndex = 12
+TitleSub.Parent = TitleBar
+
+local MinBtn = button(TitleBar, "—", UDim2.new(0,28,0,24),
+    UDim2.new(1,-62,0,10), COL.card, COL.gray, 12)
+MinBtn.ZIndex = 12
+
+local ClsBtn = button(TitleBar, "✕", UDim2.new(0,28,0,24),
+    UDim2.new(1,-30,0,10), Color3.fromRGB(180,40,40), COL.white, 12)
+ClsBtn.ZIndex = 12
+
+-- ═══ TAB BUTTONS ═══
+local TabBar = Instance.new("Frame")
+TabBar.Size = UDim2.new(1, -16, 0, 32)
+TabBar.Position = UDim2.new(0, 8, 0, 50)
+TabBar.BackgroundColor3 = COL.panel
+TabBar.BorderSizePixel = 0
+TabBar.ZIndex = 11
+TabBar.Parent = MainFrame
+corner(TabBar, 6)
+
+local tabs = {"🎵 Songs", "▶ Player", "⚙ Settings"}
+local tabButtons = {}
+local tabWidth = (W - 16) / #tabs
+
+for i, tabName in ipairs(tabs) do
+    local tb = Instance.new("TextButton")
+    tb.Size = UDim2.new(0, tabWidth - 4, 0, 24)
+    tb.Position = UDim2.new(0, (i-1)*tabWidth + 2, 0, 4)
+    tb.BackgroundColor3 = i == 1 and COL.purple or Color3.fromRGB(0,0,0)
+    tb.BackgroundTransparency = i == 1 and 0 or 1
+    tb.BorderSizePixel = 0
+    tb.Text = tabName
+    tb.TextSize = 11
+    tb.TextColor3 = i == 1 and COL.white or COL.gray
+    tb.Font = Enum.Font.GothamBold
+    tb.ZIndex = 12
+    tb.Parent = TabBar
+    corner(tb, 4)
+    tabButtons[i] = tb
 end
 
--- ═══ MAIN GUI ═══
-local function loadMain()
-    local gui=Instance.new("ScreenGui",pg)
-    gui.Name="GG";gui.ResetOnSpawn=false
+-- ═══ CONTENT AREA ═══
+local ContentArea = Instance.new("Frame")
+ContentArea.Size = UDim2.new(1, -16, 0, H - 100)
+ContentArea.Position = UDim2.new(0, 8, 0, 88)
+ContentArea.BackgroundTransparency = 1
+ContentArea.ZIndex = 11
+ContentArea.Parent = MainFrame
 
-    -- Mini button (saat minimize)
-    local mini=Instance.new("TextButton",gui)
-    mini.Size=UDim2.new(0,38,0,38)
-    mini.Position=UDim2.new(0,5,0.5,-19)
-    mini.BackgroundColor3=C.bg
-    mini.Text="🎸";mini.TextSize=18
-    mini.Font=Enum.Font.GothamBold
-    mini.TextColor3=C.t1
-    mini.Visible=false;mini.ZIndex=10
-    cr(mini,4)
-    Instance.new("UIStroke",mini).Color=C.div
+local tabFrames = {}
+for i = 1, #tabs do
+    local f = Instance.new("ScrollingFrame")
+    f.Size = UDim2.new(1, 0, 1, 0)
+    f.BackgroundTransparency = 1
+    f.BorderSizePixel = 0
+    f.ScrollBarThickness = 3
+    f.ScrollBarImageColor3 = COL.border
+    f.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    f.ScrollingDirection = Enum.ScrollingDirection.Y
+    f.CanvasSize = UDim2.new(0, 0, 0, 0)
+    f.Visible = i == 1
+    f.ZIndex = 11
+    f.Parent = ContentArea
 
-    local W,H=410,290
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 6)
+    layout.Parent = f
 
-    -- Main frame
-    local mf=Instance.new("Frame",gui)
-    mf.Size=UDim2.new(0,W,0,H)
-    mf.Position=UDim2.new(0.5,-W/2,0.5,-H/2)
-    mf.BackgroundColor3=C.bg
-    mf.BackgroundTransparency=.03
-    mf.BorderSizePixel=0
-    mf.Active=true;mf.Draggable=true
-    cr(mf,4)
-    Instance.new("UIStroke",mf).Color=C.div
+    local pad = Instance.new("UIPadding")
+    pad.PaddingTop = UDim.new(0, 4)
+    pad.PaddingBottom = UDim.new(0, 4)
+    pad.Parent = f
 
-    -- ═══ TOP BAR ═══
-    ln(mf,UDim2.new(0,14,0,14),UDim2.new(0,7,0,5),"🎸",nil,12)
-    ln(mf,UDim2.new(0,80,0,12),UDim2.new(0,23,0,3),"Auto Guitar",C.t1,10,Enum.Font.GothamBold)
-    ln(mf,UDim2.new(0,70,0,9),UDim2.new(0,23,0,15),"[Reworked] v1.0",C.t3,7)
+    tabFrames[i] = f
+end
 
-    local vBg=Instance.new("Frame",mf)
-    vBg.Size=UDim2.new(0,48,0,14)
-    vBg.Position=UDim2.new(0,108,0,6)
-    vBg.BackgroundColor3=C.gtr
-    vBg.BorderSizePixel=0;cr(vBg,3)
-    ln(vBg,UDim2.new(1,0,1,0),UDim2.new(),"guitar",C.w,7,Enum.Font.GothamBold).TextXAlignment=Enum.TextXAlignment.Center
-
-    local scBg=Instance.new("Frame",mf)
-    scBg.Size=UDim2.new(0,44,0,14)
-    scBg.Position=UDim2.new(0,160,0,6)
-    scBg.BackgroundColor3=C.blu
-    scBg.BackgroundTransparency=.2;scBg.BorderSizePixel=0;cr(scBg,3)
-    ln(scBg,UDim2.new(1,0,1,0),UDim2.new(),#PS.." songs",C.w,6,Enum.Font.GothamBold).TextXAlignment=Enum.TextXAlignment.Center
-
-    local mnB=bt(mf,UDim2.new(0,18,0,18),UDim2.new(1,-40,0,4),C.card,"—",C.t3,9)
-    local clB=bt(mf,UDim2.new(0,18,0,18),UDim2.new(1,-20,0,4),C.card,"✕",C.t3,9)
-    dv(mf,UDim2.new(1,0,0,1),UDim2.new(0,0,0,26))
-
-    -- ═══ SIDEBAR ═══
-    local SBW=64
-    local CBH=H-27-26
-    dv(mf,UDim2.new(0,1,0,CBH),UDim2.new(0,SBW,0,27))
-
-    local TD={
-        {ic="🎵",tx="songs"},
-        {ic="🎮",tx="player"},
-        {ic="⌨️",tx="keys"},
-        {ic="⚙️",tx="settings"},
-        {ic="ℹ️",tx="info"},
-    }
-    local tBs,tFs={},{}
-
-    for i,td in ipairs(TD)do
-        local b=Instance.new("TextButton",mf)
-        b.Size=UDim2.new(0,SBW-4,0,22)
-        b.Position=UDim2.new(0,2,0,27+2+(i-1)*24)
-        b.BackgroundColor3=C.card
-        b.BackgroundTransparency=i==1 and 0 or 1
-        b.Text="";b.AutoButtonColor=false;b.BorderSizePixel=0;cr(b,4)
-        local ac=Instance.new("Frame",b)
-        ac.Size=UDim2.new(0,2,.5,0)
-        ac.Position=UDim2.new(0,0,.25,0)
-        ac.BackgroundColor3=C.gtr
-        ac.Visible=i==1;ac.BorderSizePixel=0;cr(ac,1)
-        ln(b,UDim2.new(0,12,0,12),UDim2.new(0,5,0,5),td.ic,nil,9)
-        local tl=ln(b,UDim2.new(0,38,1,0),UDim2.new(0,19,0,0),td.tx,i==1 and C.t1 or C.t3,7,Enum.Font.GothamBold)
-        tl.TextYAlignment=Enum.TextYAlignment.Center
-        tBs[i]={b=b,ac=ac,tl=tl}
+-- Tab switching
+local function switchTab(idx)
+    for i, tb in ipairs(tabButtons) do
+        local active = i == idx
+        tb.BackgroundColor3 = active and COL.purple or Color3.fromRGB(0,0,0)
+        tb.BackgroundTransparency = active and 0 or 1
+        tb.TextColor3 = active and COL.white or COL.gray
+        tabFrames[i].Visible = active
     end
+end
 
-    -- Content frames
-    local CW=W-SBW-1
-    for i=1,5 do
-        local sf=Instance.new("ScrollingFrame",mf)
-        sf.Size=UDim2.new(0,CW,0,CBH)
-        sf.Position=UDim2.new(0,SBW+1,0,27)
-        sf.BackgroundTransparency=1;sf.BorderSizePixel=0
-        sf.ScrollBarThickness=2
-        sf.ScrollBarImageColor3=C.div
-        sf.AutomaticCanvasSize=Enum.AutomaticSize.Y
-        sf.ScrollingDirection=Enum.ScrollingDirection.Y
-        sf.Visible=i==1
-        local pad=Instance.new("UIPadding",sf)
-        pad.PaddingTop=UDim.new(0,3);pad.PaddingLeft=UDim.new(0,4)
-        pad.PaddingRight=UDim.new(0,4);pad.PaddingBottom=UDim.new(0,4)
-        Instance.new("UIListLayout",sf).Padding=UDim.new(0,3)
-        tFs[i]=sf
-    end
+for i = 1, #tabs do
+    tabButtons[i].MouseButton1Click:Connect(function()
+        switchTab(i)
+    end)
+end
 
-    local function swT(idx)
-        for i=1,5 do
-            tFs[i].Visible=i==idx
-            tBs[i].b.BackgroundTransparency=i==idx and 0 or 1
-            tBs[i].ac.Visible=i==idx
-            tBs[i].tl.TextColor3=i==idx and C.t1 or C.t3
-        end
-    end
-    for i=1,5 do tBs[i].b.MouseButton1Click:Connect(function()swT(i)end)end
+-- ════════════════════════════════════════
+-- TAB 1: SONGS
+-- ════════════════════════════════════════
 
-    -- ═══ BOTTOM BAR ═══
-    dv(mf,UDim2.new(.92,0,0,1),UDim2.new(.04,0,0,H-27))
-    local av=Instance.new("ImageLabel",mf)
-    av.Size=UDim2.new(0,18,0,18);av.Position=UDim2.new(0,7,0,H-22)
-    av.BackgroundColor3=C.card;av.BorderSizePixel=0;cr(av,3)
-    pcall(function()av.Image="rbxthumb://type=AvatarHeadShot&id="..plr.UserId.."&w=48&h=48"end)
-    ln(mf,UDim2.new(0,100,0,9),UDim2.new(0,28,0,H-22),plr.DisplayName,C.t1,8,Enum.Font.GothamBold)
-    ln(mf,UDim2.new(0,100,0,8),UDim2.new(0,28,0,H-12),plr.Name,C.t3,6)
-    local sDot=Instance.new("Frame",mf)
-    sDot.Size=UDim2.new(0,6,0,6);sDot.Position=UDim2.new(1,-14,0,H-17)
-    sDot.BackgroundColor3=C.tog;sDot.BorderSizePixel=0;cr(sDot,3)
+local songsTab = tabFrames[1]
+local songRowRefs = {}
+local statusLabel = nil
+local progressFill = nil
+local progressLabel = nil
 
-    -- ══════════════════════════════════
-    -- TAB 1: SONGS
-    -- ══════════════════════════════════
-    local t1f=tFs[1]
+-- Status bar di atas song list
+local statusCard = Instance.new("Frame")
+statusCard.Size = UDim2.new(1, 0, 0, 50)
+statusCard.BackgroundColor3 = COL.panel
+statusCard.BorderSizePixel = 0
+statusCard.LayoutOrder = 0
+statusCard.Parent = songsTab
+corner(statusCard, 6)
+stroke(statusCard, COL.border)
 
-    -- Filter tabs
-    local fRow=Instance.new("Frame",t1f)
-    fRow.Size=UDim2.new(1,-4,0,18);fRow.BackgroundTransparency=1;fRow.LayoutOrder=0
-    local FN={"All","Slipknot","Megadeth","A7X","Other"}
-    local TM={All="All",Slipknot="SK",Megadeth="MG",A7X="A7X",Other="*"}
-    local fBs={}
-    for i,fn in ipairs(FN)do
-        fBs[i]=bt(fRow,UDim2.new(0,46,0,16),UDim2.new(0,(i-1)*48,0,1),
-                  i==1 and C.dark or C.card,fn,i==1 and C.w or C.t3,7)
-    end
+statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -10, 0, 18)
+statusLabel.Position = UDim2.new(0, 8, 0, 4)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "⏺ Pilih lagu untuk mulai"
+statusLabel.TextSize = 11
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextColor3 = COL.gray
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.ZIndex = 12
+statusLabel.Parent = statusCard
 
-    -- Song list
-    local qBs={}
-    for i,ps in ipairs(PS)do
-        local row=Instance.new("Frame",t1f)
-        row.Size=UDim2.new(1,-4,0,30)
-        row.BackgroundColor3=C.card;row.BorderSizePixel=0;row.LayoutOrder=i;cr(row,4)
+-- Progress bar
+local progressBg = Instance.new("Frame")
+progressBg.Size = UDim2.new(1, -16, 0, 6)
+progressBg.Position = UDim2.new(0, 8, 0, 26)
+progressBg.BackgroundColor3 = COL.card
+progressBg.BorderSizePixel = 0
+progressBg.ZIndex = 12
+progressBg.Parent = statusCard
+corner(progressBg, 3)
 
-        local st2=Instance.new("Frame",row)
-        st2.Size=UDim2.new(0,3,.5,0);st2.Position=UDim2.new(0,0,.25,0)
-        st2.BackgroundColor3=ps.c;st2.BorderSizePixel=0;cr(st2,1)
+progressFill = Instance.new("Frame")
+progressFill.Size = UDim2.new(0, 0, 1, 0)
+progressFill.BackgroundColor3 = COL.purple
+progressFill.BorderSizePixel = 0
+progressFill.ZIndex = 13
+progressFill.Parent = progressBg
+corner(progressFill, 3)
 
-        ln(row,UDim2.new(0,175,0,12),UDim2.new(0,8,0,2),ps.n,C.t1,9,Enum.Font.GothamBold)
-        ln(row,UDim2.new(0,155,0,9),UDim2.new(0,8,0,16),ps.a,C.t3,7)
+progressLabel = Instance.new("TextLabel")
+progressLabel.Size = UDim2.new(1, -10, 0, 14)
+progressLabel.Position = UDim2.new(0, 8, 0, 34)
+progressLabel.BackgroundTransparency = 1
+progressLabel.Text = "0:00/0:00 · 0%"
+progressLabel.TextSize = 9
+progressLabel.Font = Enum.Font.Gotham
+progressLabel.TextColor3 = COL.gray
+progressLabel.TextXAlignment = Enum.TextXAlignment.Left
+progressLabel.ZIndex = 12
+progressLabel.Parent = statusCard
 
-        -- Badge popular/special
-        if ps.p then
-            local badgeTxt=ps.p=="🔥" and "Popular" or "Special"
-            local badgeCol=ps.p=="🔥" and C.pop or C.spc
-            local bb=Instance.new("Frame",row)
-            bb.Size=UDim2.new(0,52,0,12);bb.Position=UDim2.new(1,-90,0,2)
-            bb.BackgroundColor3=badgeCol;bb.BackgroundTransparency=.15;bb.BorderSizePixel=0;bb.ZIndex=3;cr(bb,3)
-            local bl=ln(bb,UDim2.new(1,0,1,0),UDim2.new(),ps.p.." "..badgeTxt,C.w,6,Enum.Font.GothamBold)
-            bl.TextXAlignment=Enum.TextXAlignment.Center;bl.ZIndex=4
-        end
+-- Custom URL section
+local customCard = Instance.new("Frame")
+customCard.Size = UDim2.new(1, 0, 0, 60)
+customCard.BackgroundColor3 = COL.panel
+customCard.BorderSizePixel = 0
+customCard.LayoutOrder = 1
+customCard.Parent = songsTab
+corner(customCard, 6)
+stroke(customCard, COL.border)
 
-        local pb=bt(row,UDim2.new(0,34,0,20),UDim2.new(1,-40,0,5),C.grn,"▶",C.w,10)
-        pb.MouseButton1Click:Connect(function()
-            aSg=i
-            doLoad(PS[i].u,PS[i].n)
-        end)
-        qBs[i]={row=row}
-    end
+local customTitle = Instance.new("TextLabel")
+customTitle.Size = UDim2.new(1, -10, 0, 16)
+customTitle.Position = UDim2.new(0, 8, 0, 4)
+customTitle.BackgroundTransparency = 1
+customTitle.Text = "🔗 Custom MIDI URL (.mid)"
+customTitle.TextSize = 11
+customTitle.Font = Enum.Font.GothamBold
+customTitle.TextColor3 = COL.orange
+customTitle.TextXAlignment = Enum.TextXAlignment.Left
+customTitle.ZIndex = 12
+customTitle.Parent = customCard
 
-    -- Custom MIDI
-    local cSep=Instance.new("Frame",t1f)
-    cSep.Size=UDim2.new(1,-8,0,1);cSep.BackgroundColor3=C.div
-    cSep.BorderSizePixel=0;cSep.LayoutOrder=50
+local urlBox = Instance.new("TextBox")
+urlBox.Size = UDim2.new(1, -80, 0, 24)
+urlBox.Position = UDim2.new(0, 8, 0, 24)
+urlBox.BackgroundColor3 = COL.card
+urlBox.BorderSizePixel = 0
+urlBox.Text = ""
+urlBox.PlaceholderText = "Paste .mid URL di sini..."
+urlBox.PlaceholderColor3 = COL.gray
+urlBox.TextColor3 = COL.white
+urlBox.TextSize = 10
+urlBox.Font = Enum.Font.Gotham
+urlBox.ClearTextOnFocus = false
+urlBox.TextXAlignment = Enum.TextXAlignment.Left
+urlBox.TextTruncate = Enum.TextTruncate.AtEnd
+urlBox.ZIndex = 12
+urlBox.Parent = customCard
+corner(urlBox, 4)
+stroke(urlBox, COL.border)
 
-    local cWr=Instance.new("Frame",t1f)
-    cWr.Size=UDim2.new(1,-4,0,62);cWr.BackgroundTransparency=1;cWr.LayoutOrder=51
-    ln(cWr,UDim2.new(1,0,0,10),UDim2.new(),"🔗 Custom MIDI (.mid URL)",C.t2,8,Enum.Font.GothamBold)
+local urlPad = Instance.new("UIPadding")
+urlPad.PaddingLeft = UDim.new(0, 6)
+urlPad.Parent = urlBox
 
-    local uBox=Instance.new("TextBox",cWr)
-    uBox.Size=UDim2.new(1,0,0,20);uBox.Position=UDim2.new(0,0,0,13)
-    uBox.BackgroundColor3=C.card;uBox.BorderSizePixel=0
-    uBox.Text="";uBox.PlaceholderText="  Paste .mid URL di sini..."
-    uBox.PlaceholderColor3=C.t4;uBox.TextColor3=C.t1
-    uBox.TextSize=7;uBox.Font=Enum.Font.Gotham
-    uBox.ClearTextOnFocus=false;uBox.TextXAlignment=Enum.TextXAlignment.Left
-    uBox.TextTruncate=Enum.TextTruncate.AtEnd;cr(uBox,3)
-    Instance.new("UIStroke",uBox).Color=C.div
-    Instance.new("UIPadding",uBox).PaddingLeft=UDim.new(0,5)
+local loadBtn = button(
+    customCard, "📥 Load",
+    UDim2.new(0, 64, 0, 24),
+    UDim2.new(1, -72, 0, 24),
+    COL.blue, COL.white, 10
+)
+loadBtn.ZIndex = 12
 
-    local ldB=bt(cWr,UDim2.new(0,55,0,18),UDim2.new(0,0,0,37),C.dark,"📥 Load",C.w,7)
-    local mLb=ln(cWr,UDim2.new(0,210,0,18),UDim2.new(0,59,0,37),"No MIDI loaded",C.t3,7)
+-- Song list
+local songLabel = Instance.new("TextLabel")
+songLabel.Size = UDim2.new(1, 0, 0, 16)
+songLabel.BackgroundTransparency = 1
+songLabel.Text = "  📋 Song List"
+songLabel.TextSize = 11
+songLabel.Font = Enum.Font.GothamBold
+songLabel.TextColor3 = COL.gray
+songLabel.TextXAlignment = Enum.TextXAlignment.Left
+songLabel.LayoutOrder = 2
+songLabel.ZIndex = 12
+songLabel.Parent = songsTab
 
-    -- Filter function
-    local function aFl(nm)
-        for i,fb in ipairs(fBs)do
-            fb.BackgroundColor3=FN[i]==nm and C.dark or C.card
-            fb.TextColor3=FN[i]==nm and C.w or C.t3
-        end
-        local tg=TM[nm]
-        for i,q in ipairs(qBs)do
-            if tg=="All" then q.row.Visible=true
-            elseif tg=="*" then q.row.Visible=(PS[i].t~="SK"and PS[i].t~="MG"and PS[i].t~="A7X")
-            else q.row.Visible=(PS[i].t==tg) end
-        end
-    end
-    for i,fb in ipairs(fBs)do fb.MouseButton1Click:Connect(function()aFl(FN[i])end)end
+local function loadSong(url, name, songIdx)
+    statusLabel.Text = "⏳ Loading: " .. (name or "...")
+    statusLabel.TextColor3 = COL.orange
 
-    -- ══════════════════════════════════
-    -- TAB 2: PLAYER
-    -- ══════════════════════════════════
-    local t2f=tFs[2]
-
-    -- Now Playing
-    local npC=Instance.new("Frame",t2f)
-    npC.Size=UDim2.new(1,-4,0,40);npC.BackgroundColor3=C.card
-    npC.BorderSizePixel=0;npC.LayoutOrder=0;cr(npC,4)
-
-    -- Guitar icon decoration
-    local giF=Instance.new("Frame",npC)
-    giF.Size=UDim2.new(0,30,0,30);giF.Position=UDim2.new(0,5,0,5)
-    giF.BackgroundColor3=C.gtr;giF.BackgroundTransparency=.2;giF.BorderSizePixel=0;cr(giF,4)
-    ln(giF,UDim2.new(1,0,1,0),UDim2.new(),"🎸",nil,14).TextXAlignment=Enum.TextXAlignment.Center
-
-    local npN=ln(npC,UDim2.new(.6,0,0,13),UDim2.new(0,40,0,5),"Not Playing",C.t1,10,Enum.Font.GothamBold)
-    local npA=ln(npC,UDim2.new(.6,0,0,9),UDim2.new(0,40,0,20),"Select a song",C.t3,7)
-    local npBpm=ln(npC,UDim2.new(0,60,0,12),UDim2.new(1,-65,0,14),"--",C.t2,9,Enum.Font.GothamBold)
-
-    -- Progress bar
-    local pBg=Instance.new("Frame",t2f)
-    pBg.Size=UDim2.new(1,-4,0,6);pBg.BackgroundColor3=C.div
-    pBg.BorderSizePixel=0;pBg.LayoutOrder=1;cr(pBg,3)
-    local pFl=Instance.new("Frame",pBg)
-    pFl.Size=UDim2.new(0,0,1,0);pFl.BackgroundColor3=C.gtr
-    pFl.BorderSizePixel=0;cr(pFl,3)
-
-    -- Time label
-    local pTm=ln(t2f,UDim2.new(1,-4,0,10),UDim2.new(),"0:00/0:00",C.t3,7)
-    pTm.LayoutOrder=2
-
-    -- Controls
-    local ctR=Instance.new("Frame",t2f)
-    ctR.Size=UDim2.new(1,-4,0,28);ctR.BackgroundTransparency=1;ctR.LayoutOrder=3
-
-    local togB=bt(ctR,UDim2.new(0,62,0,26),UDim2.new(0,0,0,0),C.grn,"▶ Play",C.w,10)
-    local spdB=bt(ctR,UDim2.new(0,48,0,26),UDim2.new(0,66,0,0),C.card,"1.0x ▸",C.t2,8)
-    Instance.new("UIStroke",spdB).Color=C.div
-
-    -- Stats
-    local function mkStat(ord,lbl)
-        local f=Instance.new("Frame",t2f)
-        f.Size=UDim2.new(1,-4,0,20);f.BackgroundColor3=C.card
-        f.BorderSizePixel=0;f.LayoutOrder=ord;cr(f,4)
-        ln(f,UDim2.new(.55,0,1,0),UDim2.new(0,7,0,0),lbl,C.t2,7).TextYAlignment=Enum.TextYAlignment.Center
-        local v=ln(f,UDim2.new(.38,0,1,0),UDim2.new(.57,0,0,0),"0",C.t1,8,Enum.Font.GothamBold)
-        v.TextXAlignment=Enum.TextXAlignment.Right
-        v.TextYAlignment=Enum.TextYAlignment.Center
-        Instance.new("UIPadding",v).PaddingRight=UDim.new(0,7)
-        return v
-    end
-    local sH=mkStat(4,"🎵 Total Hits")
-    local sN=mkStat(5,"⚡ Notes/sec")
-    local sL=mkStat(6,"🔄 Loops")
-    local sSc=mkStat(7,"📍 Section")
-
-    -- ══════════════════════════════════
-    -- TAB 3: KEYBOARD LAYOUT VISUAL
-    -- ══════════════════════════════════
-    local t3f=tFs[3]
-
-    ln(t3f,UDim2.new(1,-4,0,12),UDim2.new(),"🎸 Guitar Key Layout",C.t1,9,Enum.Font.GothamBold).LayoutOrder=0
-
-    -- Tampilkan keyboard layout sesuai gambar
-    local kbRows={
-        {lbl="PEDALS",lblC=Color3.fromRGB(120,0,220),keys={"~","!","@","#","$","%","^","&","*","(",")","-","+"}},
-        {lbl="",      lblC=nil,                       keys={"Q","W","E","R","T","Y","U","I","O","P","{","}","|"}},
-        {lbl="CAPS",  lblC=Color3.fromRGB(55,55,55),  keys={"`","1","2","3","4","5","6","7","8","9","0","-","="}},
-        {lbl="",      lblC=nil,                       keys={"q","w","e","r","t","y","u","i","o","p","[","]","\\"}},
-        {lbl="CTRL",  lblC=Color3.fromRGB(55,55,55),  keys={"a","s","d","f","g","h","j","k","l",";","'",":","\""}},
-        {lbl="",      lblC=nil,                       keys={"z","x","c","v","b","n","m",",",".","/","<",">","?"}},
-    }
-
-    for ri,row in ipairs(kbRows)do
-        local rf=Instance.new("Frame",t3f)
-        rf.Size=UDim2.new(1,-4,0,18);rf.BackgroundTransparency=1;rf.LayoutOrder=ri
-
-        if row.lbl~="" then
-            local lb=Instance.new("Frame",rf)
-            lb.Size=UDim2.new(0,38,0,14);lb.Position=UDim2.new(0,0,0,2)
-            lb.BackgroundColor3=row.lblC;lb.BorderSizePixel=0;cr(lb,3)
-            local lt=ln(lb,UDim2.new(1,0,1,0),UDim2.new(),row.lbl,C.w,6,Enum.Font.GothamBold)
-            lt.TextXAlignment=Enum.TextXAlignment.Center
-        end
-
-        local kStartX=42
-        local kW=math.floor((CW-kStartX-8)/#row.keys)
-        for ki,keyTxt in ipairs(row.keys)do
-            local kb=Instance.new("Frame",rf)
-            kb.Size=UDim2.new(0,kW-2,0,14)
-            kb.Position=UDim2.new(0,kStartX+(ki-1)*kW,0,2)
-            kb.BackgroundColor3=C.card;kb.BorderSizePixel=0;cr(kb,2)
-            Instance.new("UIStroke",kb).Color=C.div
-            local kt=ln(kb,UDim2.new(1,0,1,0),UDim2.new(),keyTxt,C.t1,6,Enum.Font.GothamBold)
-            kt.TextXAlignment=Enum.TextXAlignment.Center
-        end
-    end
-
-    -- Bottom keys
-    local bRow=Instance.new("Frame",t3f)
-    bRow.Size=UDim2.new(1,-4,0,18);bRow.BackgroundTransparency=1;bRow.LayoutOrder=9
-
-    local altF=Instance.new("Frame",bRow)
-    altF.Size=UDim2.new(0,55,0,14);altF.Position=UDim2.new(0,42,0,2)
-    altF.BackgroundColor3=C.card;altF.BorderSizePixel=0;cr(altF,2)
-    Instance.new("UIStroke",altF).Color=C.div
-    local alt2=ln(altF,UDim2.new(1,0,1,0),UDim2.new(),"ALT",C.t2,7,Enum.Font.GothamBold)
-    alt2.TextXAlignment=Enum.TextXAlignment.Center
-
-    local spcF=Instance.new("Frame",bRow)
-    spcF.Size=UDim2.new(0,160,0,14);spcF.Position=UDim2.new(0,102,0,2)
-    spcF.BackgroundColor3=C.card;spcF.BorderSizePixel=0;cr(spcF,2)
-    Instance.new("UIStroke",spcF).Color=C.div
-    local spc2=ln(spcF,UDim2.new(1,0,1,0),UDim2.new(),"SPACE (MUTE)",C.t2,7,Enum.Font.GothamBold)
-    spc2.TextXAlignment=Enum.TextXAlignment.Center
-
-    -- MIDI note range info
-    local nInfo=Instance.new("Frame",t3f)
-    nInfo.Size=UDim2.new(1,-4,0,60);nInfo.BackgroundColor3=C.card
-    nInfo.BorderSizePixel=0;nInfo.LayoutOrder=10;cr(nInfo,4)
-    ln(nInfo,UDim2.new(1,-8,0,11),UDim2.new(0,4,0,3),"📊 MIDI Note Mapping",C.t1,8,Enum.Font.GothamBold)
-    local mInfoTxt={
-        "Row 1 (PEDALS): Note 36-48 → C2 s/d C3",
-        "Row 2 (Q-P)   : Note 49-61 → C#3 s/d C#4",
-        "Row 3 (CAPS)  : Note 62-74 → D4 s/d D5",
-        "Row 4 (q-p)   : Note 75-87 → D#5 s/d D#6",
-        "Row 5 (CTRL)  : Note 88-100 → E6 s/d E7",
-        "Row 6 (z-m)   : Note 101-113 → F7 s/d F8",
-    }
-    for i,txt in ipairs(mInfoTxt)do
-        ln(nInfo,UDim2.new(1,-8,0,8),UDim2.new(0,4,0,3+i*9),txt,C.t3,6)
-    end
-
-    -- ══════════════════════════════════
-    -- TAB 4: SETTINGS
-    -- ══════════════════════════════════
-    local t4f=tFs[4]
-
-    local function mkTg(ord,lbl,init,fn)
-        local f=Instance.new("Frame",t4f)
-        f.Size=UDim2.new(1,-4,0,26);f.BackgroundColor3=C.card
-        f.BorderSizePixel=0;f.LayoutOrder=ord;cr(f,4)
-        ln(f,UDim2.new(.6,0,1,0),UDim2.new(0,8,0,0),lbl,C.t1,8,Enum.Font.GothamBold).TextYAlignment=Enum.TextYAlignment.Center
-        local bg2=Instance.new("Frame",f)
-        bg2.Size=UDim2.new(0,32,0,16);bg2.Position=UDim2.new(1,-40,0,5)
-        bg2.BackgroundColor3=init and C.grn or C.tog;bg2.BorderSizePixel=0;cr(bg2,3)
-        local kb2=Instance.new("Frame",bg2)
-        kb2.Size=UDim2.new(0,12,0,12)
-        kb2.Position=init and UDim2.new(0,18,0,2) or UDim2.new(0,2,0,2)
-        kb2.BackgroundColor3=C.w;kb2.BorderSizePixel=0;cr(kb2,3)
-        local bn=Instance.new("TextButton",bg2)
-        bn.Size=UDim2.new(1,0,1,0);bn.BackgroundTransparency=1;bn.Text=""
-        local on=init
-        bn.MouseButton1Click:Connect(function()
-            on=not on
-            bg2.BackgroundColor3=on and C.grn or C.tog
-            TS:Create(kb2,TweenInfo.new(.1),{Position=on and UDim2.new(0,18,0,2)or UDim2.new(0,2,0,2)}):Play()
-            if fn then fn(on) end
-        end)
-    end
-
-    mkTg(0,"⏭️ Auto-Next",aNxt,function(v)aNxt=v end)
-    mkTg(1,"🔀 Shuffle",shuf,function(v)shuf=v end)
-
-    -- Speed
-    local sf2=Instance.new("Frame",t4f)
-    sf2.Size=UDim2.new(1,-4,0,26);sf2.BackgroundColor3=C.card
-    sf2.BorderSizePixel=0;sf2.LayoutOrder=2;cr(sf2,4)
-    ln(sf2,UDim2.new(.4,0,1,0),UDim2.new(0,8,0,0),"🎚️ Play Speed",C.t1,8,Enum.Font.GothamBold).TextYAlignment=Enum.TextYAlignment.Center
-    local sDn=bt(sf2,UDim2.new(0,20,0,16),UDim2.new(1,-72,0,5),C.bg,"◀",C.t2,9)
-    local sDp=ln(sf2,UDim2.new(0,28,0,16),UDim2.new(1,-50,0,5),"1.0x",C.t1,8,Enum.Font.GothamBold)
-    sDp.TextXAlignment=Enum.TextXAlignment.Center;sDp.TextYAlignment=Enum.TextYAlignment.Center
-    local sUp=bt(sf2,UDim2.new(0,20,0,16),UDim2.new(1,-22,0,5),C.bg,"▶",C.t2,9)
-    sDn.MouseButton1Click:Connect(function()sI=math.max(1,sI-1);sM=SP[sI];sDp.Text=sM.."x";spdB.Text=sM.."x ▸"end)
-    sUp.MouseButton1Click:Connect(function()sI=math.min(#SP,sI+1);sM=SP[sI];sDp.Text=sM.."x";spdB.Text=sM.."x ▸"end)
-
-    -- Transpose
-    local tpF=Instance.new("Frame",t4f)
-    tpF.Size=UDim2.new(1,-4,0,26);tpF.BackgroundColor3=C.card
-    tpF.BorderSizePixel=0;tpF.LayoutOrder=3;cr(tpF,4)
-    ln(tpF,UDim2.new(.4,0,1,0),UDim2.new(0,8,0,0),"🎵 Transpose",C.t1,8,Enum.Font.GothamBold).TextYAlignment=Enum.TextYAlignment.Center
-    local transpose=0
-    local tpDn=bt(tpF,UDim2.new(0,20,0,16),UDim2.new(1,-72,0,5),C.bg,"◀",C.t2,9)
-    local tpDp=ln(tpF,UDim2.new(0,28,0,16),UDim2.new(1,-50,0,5),"0",C.t1,8,Enum.Font.GothamBold)
-    tpDp.TextXAlignment=Enum.TextXAlignment.Center;tpDp.TextYAlignment=Enum.TextYAlignment.Center
-    local tpUp=bt(tpF,UDim2.new(0,20,0,16),UDim2.new(1,-22,0,5),C.bg,"▶",C.t2,9)
-    tpDn.MouseButton1Click:Connect(function()transpose=math.max(-12,transpose-1);tpDp.Text=tostring(transpose)end)
-    tpUp.MouseButton1Click:Connect(function()transpose=math.min(12,transpose+1);tpDp.Text=tostring(transpose)end)
-
-    -- ══════════════════════════════════
-    -- TAB 5: INFO
-    -- ══════════════════════════════════
-    local t5f=tFs[5]
-    local infoTxt={
-        "🎸 Auto Guitar [Reworked] v1.0",
-        "made by me n team · "..#PS.." songs",
-        "",
-        "Features:",
-        "• "..#PS.." MIDI songs auto-play",
-        "• Baca file .mid binary langsung",
-        "• Mapping 78 keys guitar (6 row)",
-        "• Custom MIDI URL loader",
-        "• Speed 0.5x — 2.0x",
-        "• Transpose ±12 semitone",
-        "• Auto-Next & Shuffle",
-        "• Progress bar + live stats",
-        "• 5 artist filter tabs",
-        "",
-        "Cara Pakai:",
-        "1. Join Virtual Band",
-        "2. Execute script ini",
-        "3. Tab Songs → pilih lagu → ▶",
-        "4. Atau paste custom .mid URL",
-        "5. Enjoy auto-guitar! 🎸",
-        "",
-        "Custom MIDI:",
-        "Upload .mid ke GitHub → Raw URL",
-        "Paste di kolom Custom MIDI",
-        "",
-        "Key Layout:",
-        "6 row × 13 key = 78 posisi",
-        "MIDI note 36-113 (C2-F8)",
-        "Auto-transpose jika keluar range",
-        "",
-        "made by me n team ❤️",
-    }
-    for i,tx in ipairs(infoTxt)do
-        local f=Instance.new("Frame",t5f)
-        f.Size=UDim2.new(1,-4,0,tx==""and 4 or 11)
-        f.BackgroundTransparency=1;f.LayoutOrder=i
-        if tx~="" then
-            local bold=tx:find("🎸")or tx:find("made by")or(tx:find(":")and #tx<25)
-            ln(f,UDim2.new(1,0,1,0),UDim2.new(),tx,bold and C.t1 or C.t3,bold and 8 or 7,
-               bold and Enum.Font.GothamBold or Enum.Font.Gotham)
-        end
-    end
-
-    -- ══════════════════════════════════
-    -- REFRESH LOOP
-    -- ══════════════════════════════════
-    local function ref()
-        pcall(function()
-            if _G._AG then
-                togB.Text="⏹ Stop";togB.BackgroundColor3=C.red
-                sDot.BackgroundColor3=C.grn
-            else
-                togB.Text="▶ Play";togB.BackgroundColor3=C.grn
-                sDot.BackgroundColor3=C.tog
-            end
-
-            spdB.Text=sM.."x ▸"
-
-            local bs=mObj and tostring(mObj.bpm) or "--"
-            npBpm.Text=bs.." BPM"
-
-            if cSong~="" then
-                npN.Text=cSong;npA.Text=bs.." BPM"
-            elseif _G._AG then
-                npN.Text="Playing...";npA.Text="Guitar"
-            else
-                npN.Text="Not Playing";npA.Text="Select a song"
-            end
-
-            local pc=math.clamp(mPr,0,1)
-            pFl.Size=UDim2.new(pc,0,1,0)
-            pFl.BackgroundColor3=pc>=1 and C.grn or C.gtr
-
-            pTm.Text=mObj and (mTm.." · "..math.floor(pc*100).."%") or "∞"
-
-            sH.Text=tostring(tH)
-            sN.Text=tostring(nps())
-            sL.Text=tostring(lps)
-            sSc.Text=secN
-
-            if mObj and not mLd then
-                mLb.Text="✅ "..mObj.cnt.."n · "..mObj.bpm.."BPM"
-                mLb.TextColor3=C.grn
-            elseif not mLd then
-                mLb.Text="No MIDI loaded"
-                mLb.TextColor3=C.t3
-            end
-        end)
-    end
+    -- Stop dulu
+    stopPlay()
+    task.wait(0.1)
 
     task.spawn(function()
-        while gui and gui.Parent do
-            pcall(ref);task.wait(.25)
+        statusLabel.Text = "📥 Downloading..."
+        local raw = fetchFile(url)
+
+        if not raw then
+            statusLabel.Text = "❌ Gagal download! Cek URL"
+            statusLabel.TextColor3 = COL.red
+            return
         end
-    end)
 
-    -- ══════════════════════════════════
-    -- DOLOAD FUNCTION
-    -- ══════════════════════════════════
-    doLoad=function(u,nm)
-        if mLd then return end
-        mLd=true
-        local wasPlaying=_G._AG
-        if wasPlaying then stp();task.wait(.15)end
+        statusLabel.Text = "🔍 Parsing MIDI..."
+        statusLabel.TextColor3 = COL.yellow
 
-        ldB.Text="⏳"
-        mLb.Text="⏳ Loading...";mLb.TextColor3=C.acc
+        local data, err = parseMIDI(raw)
 
-        -- Highlight lagu yang dipilih
-        for i,q in ipairs(qBs)do
-            for _,c in ipairs(q.row:GetChildren())do
-                if c:IsA("UIStroke")then c:Destroy()end
+        if not data then
+            statusLabel.Text = "❌ " .. tostring(err)
+            statusLabel.TextColor3 = COL.red
+            return
+        end
+
+        midiData = data
+        currentSong = name or "Custom"
+        currentSongIndex = songIdx
+        totalHits = 0
+        loopCount = 0
+
+        statusLabel.Text = string.format("✅ %s · %d notes · %d BPM",
+            currentSong, data.noteCount, data.bpm)
+        statusLabel.TextColor3 = COL.green
+
+        -- Highlight row yang dipilih
+        for i, row in ipairs(songRowRefs) do
+            if row and row.Parent then
+                row.BackgroundColor3 = i == songIdx and Color3.fromRGB(50, 35, 75) or COL.card
             end
         end
-        if aSg then
-            local s=Instance.new("UIStroke",qBs[aSg].row)
-            s.Color=C.gtr;s.Thickness=1.5
-        end
 
-        task.spawn(function()
-            local d,e=loadMd(u,function(m)
-                mLb.Text="⏳ "..m;mLb.TextColor3=C.acc
-            end)
-            mLd=false;ldB.Text="📥 Load"
+        task.wait(0.3)
+        startPlay()
 
-            if d then
-                -- Apply transpose ke mapping
-                if transpose~=0 then
-                    local newGM={}
-                    for note,key in pairs(GM)do
-                        newGM[note+transpose]=key
-                    end
-                    -- Rebuild sequence dengan transpose
-                    local ns2,ts2,ppq2=M.parse(fetch(u))
-                    if ns2 then
-                        -- Shift semua note
-                        for _,n in ipairs(ns2)do
-                            n[2]=n[2]+transpose
-                        end
-                        local sq2,dur2,bpm2,cnt2=M.build(ns2,ts2,ppq2)
-                        if sq2 then d={sq=sq2,dur=dur2,bpm=bpm2,cnt=cnt2}end
-                    end
-                end
-
-                mObj=d;cSong=nm or "Custom"
-                tH=0;lps=0;mPr=0;secN="LOADED"
-
-                ref()
-                task.wait(.2)
-                if not _G._AG then
-                    go()
-                    ref()
-                end
-
-                -- Notifikasi
-                pcall(function()
-                    game:GetService("StarterGui"):SetCore("SendNotification",{
-                        Title="🎸 "..cSong,
-                        Text=d.cnt.." notes · "..d.bpm.." BPM",
-                        Duration=3
-                    })
-                end)
-            else
-                mLb.Text="❌ "..tostring(e):sub(1,22)
-                mLb.TextColor3=C.red
-                warn("[AutoGuitar] Load error:",e)
-            end
+        -- Notif
+        pcall(function()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "🎸 " .. currentSong,
+                Text = data.noteCount .. " notes · " .. data.bpm .. " BPM",
+                Duration = 3
+            })
         end)
-    end
-
-    -- ══════════════════════════════════
-    -- CONNECTIONS
-    -- ══════════════════════════════════
-    togB.MouseButton1Click:Connect(function()
-        if _G._AG then stp() else
-            if mObj then go() end
-        end
-        ref()
     end)
-
-    spdB.MouseButton1Click:Connect(function()
-        sI=sI%#SP+1;sM=SP[sI]
-        sDp.Text=sM.."x";spdB.Text=sM.."x ▸"
-    end)
-
-    ldB.MouseButton1Click:Connect(function()
-        local u=uBox.Text:match("^%s*(.-)%s*$")
-        if u and u~="" then
-            aSg=nil
-            doLoad(u,u:match("([^/]+)%.mid") or "Custom")
-        else
-            mLb.Text="⚠ Paste URL .mid dulu!";mLb.TextColor3=C.acc
-        end
-    end)
-
-    -- Confirm close
-    clB.MouseButton1Click:Connect(function()
-        local ov=Instance.new("Frame",gui)
-        ov.Size=UDim2.new(1,0,1,0);ov.BackgroundColor3=Color3.new(0,0,0)
-        ov.BackgroundTransparency=.5;ov.BorderSizePixel=0;ov.ZIndex=50
-
-        local bx=Instance.new("Frame",ov)
-        bx.Size=UDim2.new(0,200,0,90);bx.Position=UDim2.new(.5,-100,.5,-45)
-        bx.BackgroundColor3=C.bg;bx.BorderSizePixel=0;bx.ZIndex=51;cr(bx,4)
-        Instance.new("UIStroke",bx).Color=C.div
-
-        local tl=ln(bx,UDim2.new(1,0,0,14),UDim2.new(0,0,0,8),"⚠️ Close Auto Guitar?",C.t1,10,Enum.Font.GothamBold)
-        tl.TextXAlignment=Enum.TextXAlignment.Center;tl.ZIndex=52
-
-        local yB=bt(bx,UDim2.new(0,70,0,24),UDim2.new(0,15,0,52),C.red,"Yes, close",C.w,8);yB.ZIndex=52
-        local nB=bt(bx,UDim2.new(0,70,0,24),UDim2.new(0,115,0,52),C.card,"Cancel",C.t1,8);nB.ZIndex=52
-        Instance.new("UIStroke",nB).Color=C.div
-
-        yB.MouseButton1Click:Connect(function()
-            ov:Destroy();stp();task.wait(.1)
-            gui:Destroy()
-            if kC then kC:Disconnect()end
-            _G._AG=nil
-        end)
-        nB.MouseButton1Click:Connect(function()ov:Destroy()end)
-    end)
-
-    mnB.MouseButton1Click:Connect(function()mf.Visible=false;mini.Visible=true end)
-    mini.MouseButton1Click:Connect(function()mf.Visible=true;mini.Visible=false end)
-
-    -- Keyboard shortcut P = toggle
-    kC=UIS.InputBegan:Connect(function(i,g)
-        if g then return end
-        if i.KeyCode==Enum.KeyCode.P then
-            if _G._AG then stp() else if mObj then go() end end
-        end
-    end)
-
-    -- Startup
-    aFl("All");ref()
-
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification",{
-            Title="🎸 Auto Guitar [Reworked]",
-            Text="v1.0 · "..#PS.." songs · Siap!",
-            Duration=3
-        })
-    end)
-
-    print("🎸 Auto Guitar [Reworked] v1.0")
-    print("  "..#PS.." songs · Guitar MIDI Player")
-    print("  P = Play/Stop")
 end
 
--- ═══ ENTRY POINT ═══
-loadMain()
+-- Buat song rows
+for i, song in ipairs(Songs) do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 46)
+    row.BackgroundColor3 = COL.card
+    row.BorderSizePixel = 0
+    row.LayoutOrder = i + 2
+    row.ZIndex = 12
+    row.Parent = songsTab
+    corner(row, 6)
+    stroke(row, COL.border)
+
+    -- Color accent
+    local accent = Instance.new("Frame")
+    accent.Size = UDim2.new(0, 4, 0.7, 0)
+    accent.Position = UDim2.new(0, 0, 0.15, 0)
+    accent.BackgroundColor3 = song.c
+    accent.BorderSizePixel = 0
+    accent.ZIndex = 13
+    accent.Parent = row
+    corner(accent, 2)
+
+    -- Song name
+    local nameL = Instance.new("TextLabel")
+    nameL.Size = UDim2.new(1, -90, 0, 18)
+    nameL.Position = UDim2.new(0, 12, 0, 5)
+    nameL.BackgroundTransparency = 1
+    nameL.Text = (song.tag and song.tag .. " " or "") .. song.n
+    nameL.TextSize = 12
+    nameL.Font = Enum.Font.GothamBold
+    nameL.TextColor3 = COL.white
+    nameL.TextXAlignment = Enum.TextXAlignment.Left
+    nameL.ZIndex = 13
+    nameL.Parent = row
+
+    -- Artist
+    local artistL = Instance.new("TextLabel")
+    artistL.Size = UDim2.new(1, -90, 0, 14)
+    artistL.Position = UDim2.new(0, 12, 0, 26)
+    artistL.BackgroundTransparency = 1
+    artistL.Text = song.a
+    artistL.TextSize = 10
+    artistL.Font = Enum.Font.Gotham
+    artistL.TextColor3 = COL.gray
+    artistL.TextXAlignment = Enum.TextXAlignment.Left
+    artistL.ZIndex = 13
+    artistL.Parent = row
+
+    -- Play button
+    local playBt = button(
+        row, "▶",
+        UDim2.new(0, 36, 0, 28),
+        UDim2.new(1, -44, 0, 9),
+        COL.green, COL.white, 14
+    )
+    playBt.ZIndex = 13
+
+    playBt.MouseButton1Click:Connect(function()
+        loadSong(song.u, song.n, i)
+    end)
+
+    songRowRefs[i] = row
+end
+
+-- Load custom URL
+loadBtn.MouseButton1Click:Connect(function()
+    local url = urlBox.Text:match("^%s*(.-)%s*$")
+    if url == "" then
+        statusLabel.Text = "⚠ Paste URL .mid dulu!"
+        statusLabel.TextColor3 = COL.orange
+        return
+    end
+    -- Konversi github.com/blob/ ke raw
+    url = url:gsub(
+        "https://github%.com/([^/]+)/([^/]+)/blob/(.+)",
+        "https://raw.githubusercontent.com/%1/%2/%3"
+    )
+    loadSong(url, url:match("([^/]+)%.mid") or "Custom", nil)
+end)
+
+-- ════════════════════════════════════════
+-- TAB 2: PLAYER
+-- ════════════════════════════════════════
+
+local playerTab = tabFrames[2]
+
+-- Now Playing Card
+local npCard = Instance.new("Frame")
+npCard.Size = UDim2.new(1, 0, 0, 80)
+npCard.BackgroundColor3 = COL.panel
+npCard.BorderSizePixel = 0
+npCard.LayoutOrder = 0
+npCard.Parent = playerTab
+corner(npCard, 8)
+stroke(npCard, COL.border)
+
+local npIcon = Instance.new("TextLabel")
+npIcon.Size = UDim2.new(0, 50, 0, 50)
+npIcon.Position = UDim2.new(0, 12, 0, 15)
+npIcon.BackgroundColor3 = COL.purple
+npIcon.BackgroundTransparency = 0.7
+npIcon.Text = "🎸"
+npIcon.TextSize = 24
+npIcon.TextXAlignment = Enum.TextXAlignment.Center
+npIcon.TextYAlignment = Enum.TextYAlignment.Center
+npIcon.ZIndex = 12
+npIcon.Parent = npCard
+corner(npIcon, 8)
+
+local npName = Instance.new("TextLabel")
+npName.Size = UDim2.new(1, -80, 0, 20)
+npName.Position = UDim2.new(0, 70, 0, 14)
+npName.BackgroundTransparency = 1
+npName.Text = "Not Playing"
+npName.TextSize = 14
+npName.Font = Enum.Font.GothamBold
+npName.TextColor3 = COL.white
+npName.TextXAlignment = Enum.TextXAlignment.Left
+npName.ZIndex = 12
+npName.Parent = npCard
+
+local npArtist = Instance.new("TextLabel")
+npArtist.Size = UDim2.new(1, -80, 0, 14)
+npArtist.Position = UDim2.new(0, 70, 0, 36)
+npArtist.BackgroundTransparency = 1
+npArtist.Text = "Pilih lagu di tab Songs"
+npArtist.TextSize = 10
+npArtist.Font = Enum.Font.Gotham
+npArtist.TextColor3 = COL.gray
+npArtist.TextXAlignment = Enum.TextXAlignment.Left
+npArtist.ZIndex = 12
+npArtist.Parent = npCard
+
+local npBpm = Instance.new("TextLabel")
+npBpm.Size = UDim2.new(1, -80, 0, 14)
+npBpm.Position = UDim2.new(0, 70, 0, 54)
+npBpm.BackgroundTransparency = 1
+npBpm.Text = "-- BPM · -- notes"
+npBpm.TextSize = 10
+npBpm.Font = Enum.Font.Gotham
+npBpm.TextColor3 = COL.gray
+npBpm.TextXAlignment = Enum.TextXAlignment.Left
+npBpm.ZIndex = 12
+npBpm.Parent = npCard
+
+-- Control buttons
+local ctrlCard = Instance.new("Frame")
+ctrlCard.Size = UDim2.new(1, 0, 0, 48)
+ctrlCard.BackgroundColor3 = COL.panel
+ctrlCard.BorderSizePixel = 0
+ctrlCard.LayoutOrder = 1
+ctrlCard.Parent = playerTab
+corner(ctrlCard, 8)
+stroke(ctrlCard, COL.border)
+
+local playStopBtn = button(
+    ctrlCard, "▶ PLAY",
+    UDim2.new(0, 110, 0, 32),
+    UDim2.new(0, 8, 0, 8),
+    COL.green, COL.white, 13
+)
+playStopBtn.ZIndex = 12
+
+local speedLabel2 = Instance.new("TextLabel")
+speedLabel2.Size = UDim2.new(0, 50, 0, 14)
+speedLabel2.Position = UDim2.new(0, 130, 0, 8)
+speedLabel2.BackgroundTransparency = 1
+speedLabel2.Text = "Speed:"
+speedLabel2.TextSize = 10
+speedLabel2.Font = Enum.Font.Gotham
+speedLabel2.TextColor3 = COL.gray
+speedLabel2.ZIndex = 12
+speedLabel2.Parent = ctrlCard
+
+local speedDown = button(ctrlCard, "◀", UDim2.new(0,24,0,24), UDim2.new(0,130,0,20), COL.card, COL.white, 11)
+speedDown.ZIndex = 12
+local speedDisplay = Instance.new("TextLabel")
+speedDisplay.Size = UDim2.new(0, 40, 0, 24)
+speedDisplay.Position = UDim2.new(0, 157, 0, 20)
+speedDisplay.BackgroundTransparency = 1
+speedDisplay.Text = "1.0x"
+speedDisplay.TextSize = 12
+speedDisplay.Font = Enum.Font.GothamBold
+speedDisplay.TextColor3 = COL.white
+speedDisplay.TextXAlignment = Enum.TextXAlignment.Center
+speedDisplay.ZIndex = 12
+speedDisplay.Parent = ctrlCard
+
+local speedUp = button(ctrlCard, "▶", UDim2.new(0,24,0,24), UDim2.new(0,200,0,20), COL.card, COL.white, 11)
+speedUp.ZIndex = 12
+
+-- Stats
+local statsCard = Instance.new("Frame")
+statsCard.Size = UDim2.new(1, 0, 0, 90)
+statsCard.BackgroundColor3 = COL.panel
+statsCard.BorderSizePixel = 0
+statsCard.LayoutOrder = 2
+statsCard.Parent = playerTab
+corner(statsCard, 8)
+stroke(statsCard, COL.border)
+
+local statTitle = Instance.new("TextLabel")
+statTitle.Size = UDim2.new(1, -10, 0, 18)
+statTitle.Position = UDim2.new(0, 8, 0, 4)
+statTitle.BackgroundTransparency = 1
+statTitle.Text = "📊 Live Stats"
+statTitle.TextSize = 11
+statTitle.Font = Enum.Font.GothamBold
+statTitle.TextColor3 = COL.gray
+statTitle.TextXAlignment = Enum.TextXAlignment.Left
+statTitle.ZIndex = 12
+statTitle.Parent = statsCard
+
+local statHits = Instance.new("TextLabel")
+statHits.Size = UDim2.new(0.5, 0, 0, 16)
+statHits.Position = UDim2.new(0, 8, 0, 26)
+statHits.BackgroundTransparency = 1
+statHits.Text = "🎵 Hits: 0"
+statHits.TextSize = 10
+statHits.Font = Enum.Font.Gotham
+statHits.TextColor3 = COL.white
+statHits.TextXAlignment = Enum.TextXAlignment.Left
+statHits.ZIndex = 12
+statHits.Parent = statsCard
+
+local statLoops = Instance.new("TextLabel")
+statLoops.Size = UDim2.new(0.5, 0, 0, 16)
+statLoops.Position = UDim2.new(0.5, 0, 0, 26)
+statLoops.BackgroundTransparency = 1
+statLoops.Text = "🔄 Loops: 0"
+statLoops.TextSize = 10
+statLoops.Font = Enum.Font.Gotham
+statLoops.TextColor3 = COL.white
+statLoops.TextXAlignment = Enum.TextXAlignment.Left
+statLoops.ZIndex = 12
+statLoops.Parent = statsCard
+
+local statTime = Instance.new("TextLabel")
+statTime.Size = UDim2.new(1, -16, 0, 16)
+statTime.Position = UDim2.new(0, 8, 0, 46)
+statTime.BackgroundTransparency = 1
+statTime.Text = "⏱ Time: 0:00/0:00"
+statTime.TextSize = 10
+statTime.Font = Enum.Font.Gotham
+statTime.TextColor3 = COL.white
+statTime.TextXAlignment = Enum.TextXAlignment.Left
+statTime.ZIndex = 12
+statTime.Parent = statsCard
+
+local statStatus = Instance.new("TextLabel")
+statStatus.Size = UDim2.new(1, -16, 0, 16)
+statStatus.Position = UDim2.new(0, 8, 0, 66)
+statStatus.BackgroundTransparency = 1
+statStatus.Text = "📍 Status: Idle"
+statStatus.TextSize = 10
+statStatus.Font = Enum.Font.Gotham
+statStatus.TextColor3 = COL.white
+statStatus.TextXAlignment = Enum.TextXAlignment.Left
+statStatus.ZIndex = 12
+statStatus.Parent = statsCard
+
+-- ════════════════════════════════════════
+-- TAB 3: SETTINGS
+-- ════════════════════════════════════════
+
+local settingsTab = tabFrames[3]
+
+local function makeToggle(parent, labelText, default, order, callback)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, 0, 0, 40)
+    f.BackgroundColor3 = COL.panel
+    f.BorderSizePixel = 0
+    f.LayoutOrder = order
+    f.Parent = parent
+    corner(f, 6)
+    stroke(f, COL.border)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.7, 0, 1, 0)
+    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = labelText
+    lbl.TextSize = 11
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextColor3 = COL.white
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextYAlignment = Enum.TextYAlignment.Center
+    lbl.ZIndex = 12
+    lbl.Parent = f
+
+    local trackBg = Instance.new("Frame")
+    trackBg.Size = UDim2.new(0, 36, 0, 18)
+    trackBg.Position = UDim2.new(1, -50, 0.5, -9)
+    trackBg.BackgroundColor3 = default and COL.green or COL.border
+    trackBg.BorderSizePixel = 0
+    trackBg.ZIndex = 12
+    trackBg.Parent = f
+    corner(trackBg, 9)
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.new(0, 14, 0, 14)
+    knob.Position = default and UDim2.new(0, 20, 0, 2) or UDim2.new(0, 2, 0, 2)
+    knob.BackgroundColor3 = COL.white
+    knob.BorderSizePixel = 0
+    knob.ZIndex = 13
+    knob.Parent = trackBg
+    corner(knob, 7)
+
+    local state = default
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""
+    btn.ZIndex = 13
+    btn.Parent = trackBg
+
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        trackBg.BackgroundColor3 = state and COL.green or COL.border
+        TweenService:Create(knob, TweenInfo.new(0.15), {
+            Position = state and UDim2.new(0, 20, 0, 2) or UDim2.new(0, 2, 0, 2)
+        }):Play()
+        if callback then callback(state) end
+    end)
+end
+
+makeToggle(settingsTab, "⏭ Auto-Next Song", false, 0, function(v)
+    autoNext = v
+end)
+makeToggle(settingsTab, "🔀 Shuffle Mode", false, 1, function(v)
+    shuffleMode = v
+end)
+
+-- Speed setting
+local speedCard = Instance.new("Frame")
+speedCard.Size = UDim2.new(1, 0, 0, 40)
+speedCard.BackgroundColor3 = COL.panel
+speedCard.BorderSizePixel = 0
+speedCard.LayoutOrder = 2
+speedCard.Parent = settingsTab
+corner(speedCard, 6)
+stroke(speedCard, COL.border)
+
+local speedLbl = Instance.new("TextLabel")
+speedLbl.Size = UDim2.new(0.5, 0, 1, 0)
+speedLbl.Position = UDim2.new(0, 10, 0, 0)
+speedLbl.BackgroundTransparency = 1
+speedLbl.Text = "🎚 Play Speed"
+speedLbl.TextSize = 11
+speedLbl.Font = Enum.Font.GothamBold
+speedLbl.TextColor3 = COL.white
+speedLbl.TextXAlignment = Enum.TextXAlignment.Left
+speedLbl.TextYAlignment = Enum.TextYAlignment.Center
+speedLbl.ZIndex = 12
+speedLbl.Parent = speedCard
+
+local spDn = button(speedCard, "◀", UDim2.new(0,24,0,24), UDim2.new(1,-82,0,8), COL.card, COL.white, 11)
+spDn.ZIndex = 12
+local spDp = Instance.new("TextLabel")
+spDp.Size = UDim2.new(0,36,0,24)
+spDp.Position = UDim2.new(1,-56,0,8)
+spDp.BackgroundTransparency = 1
+spDp.Text = "1.0x"
+spDp.TextSize = 12
+spDp.Font = Enum.Font.GothamBold
+spDp.TextColor3 = COL.white
+spDp.TextXAlignment = Enum.TextXAlignment.Center
+spDp.ZIndex = 12
+spDp.Parent = speedCard
+
+local spUp = button(speedCard, "▶", UDim2.new(0,24,0,24), UDim2.new(1,-18,0,8), COL.card, COL.white, 11)
+spUp.ZIndex = 12
+
+local function updateSpeed()
+    playSpeed = speedList[speedIndex]
+    local txt = string.format("%.2gx", playSpeed)
+    spDp.Text = txt
+    speedDisplay.Text = txt
+end
+
+spDn.MouseButton1Click:Connect(function()
+    speedIndex = math.max(1, speedIndex - 1)
+    updateSpeed()
+end)
+spUp.MouseButton1Click:Connect(function()
+    speedIndex = math.min(#speedList, speedIndex + 1)
+    updateSpeed()
+end)
+speedDown.MouseButton1Click:Connect(function()
+    speedIndex = math.max(1, speedIndex - 1)
+    updateSpeed()
+end)
+speedUp.MouseButton1Click:Connect(function()
+    speedIndex = math.min(#speedList, speedIndex + 1)
+    updateSpeed()
+end)
+
+-- Info card
+local infoCard = Instance.new("Frame")
+infoCard.Size = UDim2.new(1, 0, 0, 110)
+infoCard.BackgroundColor3 = COL.panel
+infoCard.BorderSizePixel = 0
+infoCard.LayoutOrder = 3
+infoCard.Parent = settingsTab
+corner(infoCard, 6)
+stroke(infoCard, COL.border)
+
+local infoLines = {
+    "🎸 Auto Guitar v1.0",
+    "Baca file .mid binary langsung",
+    "Support chord + auto transpose",
+    "",
+    "Cara pakai:",
+    "1. Tab Songs → pilih lagu → ▶",
+    "2. Atau paste custom .mid URL",
+    "3. P = toggle Play/Stop",
+    "4. Enjoy! 🎸",
+}
+
+for i, line in ipairs(infoLines) do
+    local il = Instance.new("TextLabel")
+    il.Size = UDim2.new(1, -16, 0, 10)
+    il.Position = UDim2.new(0, 8, 0, 2 + (i-1) * 11)
+    il.BackgroundTransparency = 1
+    il.Text = line
+    il.TextSize = 9
+    il.Font = line:find("🎸") and Enum.Font.GothamBold or Enum.Font.Gotham
+    il.TextColor3 = line:find("🎸") and COL.purple or COL.gray
+    il.TextXAlignment = Enum.TextXAlignment.Left
+    il.ZIndex = 12
+    il.Parent = infoCard
+end
+
+-- ════════════════════════════════════════
+-- REFRESH LOOP
+-- ════════════════════════════════════════
+
+task.spawn(function()
+    while ScreenGui and ScreenGui.Parent do
+        pcall(function()
+            local pc = math.clamp(midiProgress, 0, 1)
+            progressFill.Size = UDim2.new(pc, 0, 1, 0)
+            progressFill.BackgroundColor3 = isPlaying and COL.purple or COL.border
+            progressLabel.Text = midiTime .. " · " .. math.floor(pc * 100) .. "%"
+
+            if isPlaying then
+                statusLabel.TextColor3 = COL.green
+                playStopBtn.Text = "⏹ STOP"
+                playStopBtn.BackgroundColor3 = COL.red
+                statStatus.Text = "📍 Status: ▶ Playing"
+                toggleIcon.Text = "⏹"
+            else
+                if currentSong ~= "" then
+                    statusLabel.TextColor3 = COL.gray
+                end
+                playStopBtn.Text = "▶ PLAY"
+                playStopBtn.BackgroundColor3 = COL.green
+                statStatus.Text = "📍 Status: ⏹ Stopped"
+                toggleIcon.Text = "🎸"
+            end
+
+            if midiData then
+                npName.Text = currentSong
+                npArtist.Text = isPlaying and "▶ Playing..." or "⏹ Ready"
+                npBpm.Text = midiData.bpm .. " BPM · " .. midiData.noteCount .. " notes"
+            end
+
+            statHits.Text = "🎵 Hits: " .. totalHits
+            statLoops.Text = "🔄 Loops: " .. loopCount
+            statTime.Text = "⏱ Time: " .. midiTime
+        end)
+        task.wait(0.2)
+    end
+end)
+
+-- ════════════════════════════════════════
+-- BUTTON CONNECTIONS
+-- ════════════════════════════════════════
+
+playStopBtn.MouseButton1Click:Connect(function()
+    if isPlaying then
+        stopPlay()
+    else
+        if midiData then
+            startPlay()
+        else
+            statusLabel.Text = "⚠ Load lagu dulu!"
+            statusLabel.TextColor3 = COL.orange
+            switchTab(1)
+        end
+    end
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+end)
+
+ClsBtn.MouseButton1Click:Connect(function()
+    stopPlay()
+    task.wait(0.1)
+    ScreenGui:Destroy()
+    _G._AG = nil
+end)
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- P = toggle play/stop
+UserInputService.InputBegan:Connect(function(inp, gpe)
+    if gpe then return end
+    if inp.KeyCode == Enum.KeyCode.P then
+        if isPlaying then
+            stopPlay()
+        else
+            if midiData then startPlay() end
+        end
+    end
+end)
+
+-- ════════════════════════════════════════
+-- DONE
+-- ════════════════════════════════════════
+
+MainFrame.Visible = true
+print("🎸 Auto Guitar: GUI Ready!")
+print("   Toggle: Klik tombol 🎸 di kiri layar")
+print("   Shortcut: P = Play/Stop")
