@@ -1,0 +1,1111 @@
+-- Virtual Band Guitar GUI dengan MIDI Parser
+-- LocalScript - Letakkan di StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ========================================
+-- MIDI BINARY PARSER
+-- ========================================
+
+local MidiParser = {}
+
+-- Baca bytes dari string binary
+local function readBytes(data, pos, count)
+    local bytes = {}
+    for i = 0, count - 1 do
+        bytes[i + 1] = string.byte(data, pos + i)
+    end
+    return bytes, pos + count
+end
+
+-- Baca integer dari bytes (Big Endian)
+local function readInt(data, pos, bytes)
+    local value = 0
+    for i = 0, bytes - 1 do
+        value = value * 256 + string.byte(data, pos + i)
+    end
+    return value, pos + bytes
+end
+
+-- Baca Variable Length Quantity (VLQ) - format MIDI
+local function readVLQ(data, pos)
+    local value = 0
+    local byte
+    repeat
+        byte = string.byte(data, pos)
+        if byte == nil then break end
+        value = (value * 128) + (byte % 128)
+        pos = pos + 1
+    until byte < 128
+    return value, pos
+end
+
+-- Parse file .mid binary
+function MidiParser.parse(data)
+    local events = {}
+    local pos = 1
+    local dataLen = #data
+
+    -- Cek header MThd
+    local header = data:sub(1, 4)
+    if header ~= "MThd" then
+        return nil, "Bukan file MIDI valid! Header: " .. tostring(header)
+    end
+    pos = 5
+
+    -- Baca header length (harus 6)
+    local headerLen, newPos = readInt(data, pos, 4)
+    pos = newPos
+
+    -- Baca format MIDI (0, 1, atau 2)
+    local format, p2 = readInt(data, pos, 2)
+    pos = p2
+
+    -- Baca jumlah track
+    local numTracks, p3 = readInt(data, pos, 2)
+    pos = p3
+
+    -- Baca timing (ticks per beat)
+    local ticksPerBeat, p4 = readInt(data, pos, 2)
+    pos = p4
+
+    if ticksPerBeat == 0 then ticksPerBeat = 480 end
+
+    local tempo = 500000 -- default 120 BPM (microseconds per beat)
+    local allEvents = {}
+
+    -- Parse setiap track
+    for trackNum = 1, numTracks do
+        if pos > dataLen then break end
+
+        -- Cek header MTrk
+        local trackHeader = data:sub(pos, pos + 3)
+        if trackHeader ~= "MTrk" then
+            pos = pos + 1
+            repeat
+                pos = pos + 1
+                if pos + 3 > dataLen then break end
+            until data:sub(pos, pos + 3) == "MTrk"
+            if pos + 3 > dataLen then break end
+        end
+        pos = pos + 4
+
+        -- Baca panjang track
+        local trackLen, p5 = readInt(data, pos, 4)
+        pos = p5
+        local trackEnd = pos + trackLen
+
+        local absoluteTick = 0
+        local runningStatus = 0
+
+        -- Parse events dalam track
+        while pos < trackEnd do
+            if pos > dataLen then break end
+
+            -- Baca delta time
+            local deltaTime, newP
+            local success, err = pcall(function()
+                deltaTime, newP = readVLQ(data, pos)
+            end)
+            if not success or newP == nil then break end
+            pos = newP
+            absoluteTick = absoluteTick + deltaTime
+
+            if pos > dataLen then break end
+
+            -- Baca event type
+            local eventByte = string.byte(data, pos)
+            if eventByte == nil then break end
+
+            -- Running status
+            if eventByte >= 128 then
+                runningStatus = eventByte
+                pos = pos + 1
+            end
+
+            local status = runningStatus
+            local eventType = math.floor(status / 16)
+            local channel = status % 16
+
+            if pos > dataLen then break end
+
+            -- Meta Event
+            if status == 0xFF then
+                local metaType = string.byte(data, pos)
+                pos = pos + 1
+                if pos > dataLen then break end
+
+                local metaLen, mp = readVLQ(data, pos)
+                pos = mp
+
+                -- Tempo change
+                if metaType == 0x51 and metaLen == 3 then
+                    local t1 = string.byte(data, pos) or 0
+                    local t2 = string.byte(data, pos + 1) or 0
+                    local t3 = string.byte(data, pos + 2) or 0
+                    tempo = t1 * 65536 + t2 * 256 + t3
+                    table.insert(allEvents, {
+                        tick = absoluteTick,
+                        type = "tempo",
+                        tempo = tempo,
+                        track = trackNum
+                    })
+                end
+
+                pos = pos + metaLen
+
+            -- SysEx Event
+            elseif status == 0xF0 or status == 0xF7 then
+                local sysLen, sp = readVLQ(data, pos)
+                pos = sp + sysLen
+
+            -- Channel Events
+            elseif eventType == 9 then -- Note On
+                local note = string.byte(data, pos) or 0
+                local velocity = string.byte(data, pos + 1) or 0
+                pos = pos + 2
+
+                table.insert(allEvents, {
+                    tick = absoluteTick,
+                    type = velocity > 0 and "noteOn" or "noteOff",
+                    note = note,
+                    velocity = velocity,
+                    channel = channel,
+                    track = trackNum
+                })
+
+            elseif eventType == 8 then -- Note Off
+                local note = string.byte(data, pos) or 0
+                local velocity = string.byte(data, pos + 1) or 0
+                pos = pos + 2
+
+                table.insert(allEvents, {
+                    tick = absoluteTick,
+                    type = "noteOff",
+                    note = note,
+                    velocity = velocity,
+                    channel = channel,
+                    track = trackNum
+                })
+
+            elseif eventType == 10 then -- Aftertouch
+                pos = pos + 2
+            elseif eventType == 11 then -- Control Change
+                pos = pos + 2
+            elseif eventType == 12 then -- Program Change
+                pos = pos + 1
+            elseif eventType == 13 then -- Channel Pressure
+                pos = pos + 1
+            elseif eventType == 14 then -- Pitch Bend
+                pos = pos + 2
+            else
+                pos = pos + 1
+            end
+        end
+
+        pos = trackEnd
+    end
+
+    -- Sort semua events berdasarkan tick
+    table.sort(allEvents, function(a, b)
+        if a.tick == b.tick then
+            -- noteOff sebelum noteOn di tick yang sama
+            if a.type == "noteOff" and b.type ~= "noteOff" then return true end
+            if b.type == "noteOff" and a.type ~= "noteOff" then return false end
+        end
+        return a.tick < b.tick
+    end)
+
+    -- Konversi tick ke waktu detik
+    local currentTempo = 500000
+    local currentTick = 0
+    local currentTime = 0
+    local tempoChanges = {}
+
+    -- Kumpulkan tempo changes
+    for _, evt in ipairs(allEvents) do
+        if evt.type == "tempo" then
+            table.insert(tempoChanges, evt)
+        end
+    end
+
+    -- Konversi tick ke seconds untuk setiap event
+    local tempoIdx = 1
+    local lastTempoTick = 0
+    local lastTempoTime = 0
+    local lastTempoValue = 500000
+
+    for _, evt in ipairs(allEvents) do
+        -- Update tempo jika ada perubahan
+        while tempoIdx <= #tempoChanges and tempoChanges[tempoIdx].tick <= evt.tick do
+            local tc = tempoChanges[tempoIdx]
+            lastTempoTime = lastTempoTime + (tc.tick - lastTempoTick) * lastTempoValue / (ticksPerBeat * 1000000)
+            lastTempoTick = tc.tick
+            lastTempoValue = tc.tempo
+            tempoIdx = tempoIdx + 1
+        end
+
+        local timeSeconds = lastTempoTime + (evt.tick - lastTempoTick) * lastTempoValue / (ticksPerBeat * 1000000)
+        evt.timeSeconds = timeSeconds
+
+        if evt.type == "noteOn" then
+            table.insert(events, {
+                time = timeSeconds,
+                note = evt.note,
+                velocity = evt.velocity,
+                channel = evt.channel,
+                track = evt.track
+            })
+        end
+    end
+
+    -- Sort final events
+    table.sort(events, function(a, b) return a.time < b.time end)
+
+    return events, nil, {
+        format = format,
+        numTracks = numTracks,
+        ticksPerBeat = ticksPerBeat,
+        totalNotes = #events
+    }
+end
+
+-- ========================================
+-- MIDI NOTE TO GUITAR KEY MAPPING
+-- ========================================
+
+-- Map MIDI note numbers ke tombol guitar
+-- Disesuaikan dengan layout di gambar
+local noteToKey = {}
+
+-- Mapping lengkap: MIDI note 36-108 ke keys
+local keyLayout = {
+    -- PEDALS row (special chars)
+    [36] = "~",  [37] = "!",  [38] = "@",  [39] = "#",
+    [40] = "$",  [41] = "%",  [42] = "^",  [43] = "&",
+    [44] = "*",  [45] = "(",  [46] = ")",  [47] = "_",  [48] = "+",
+
+    -- Q row (uppercase)
+    [49] = "Q",  [50] = "W",  [51] = "E",  [52] = "R",
+    [53] = "T",  [54] = "Y",  [55] = "U",  [56] = "I",
+    [57] = "O",  [58] = "P",  [59] = "{",  [60] = "}",  [61] = "|",
+
+    -- CAPS row (numbers)
+    [62] = "`",  [63] = "1",  [64] = "2",  [65] = "3",
+    [66] = "4",  [67] = "5",  [68] = "6",  [69] = "7",
+    [70] = "8",  [71] = "9",  [72] = "0",  [73] = "-",  [74] = "=",
+
+    -- Lowercase row
+    [75] = "q",  [76] = "w",  [77] = "e",  [78] = "r",
+    [79] = "t",  [80] = "y",  [81] = "u",  [82] = "i",
+    [83] = "o",  [84] = "p",  [85] = "[",  [86] = "]",  [87] = "\\",
+
+    -- CTRL row
+    [88] = "a",  [89] = "s",  [90] = "d",  [91] = "f",
+    [92] = "g",  [93] = "h",  [94] = "j",  [95] = "k",
+    [96] = "l",  [97] = ";",  [98] = "'",  [99] = ":",  [100] = "\"",
+
+    -- Bottom row
+    [101] = "z", [102] = "x", [103] = "c", [104] = "v",
+    [105] = "b", [106] = "n", [107] = "m", [108] = ",",
+    [109] = ".", [110] = "/", [111] = "<", [112] = ">", [113] = "?",
+}
+
+noteToKey = keyLayout
+
+-- Key to KeyCode mapping
+local keyToKeyCode = {
+    Q=Enum.KeyCode.Q, W=Enum.KeyCode.W, E=Enum.KeyCode.E, R=Enum.KeyCode.R,
+    T=Enum.KeyCode.T, Y=Enum.KeyCode.Y, U=Enum.KeyCode.U, I=Enum.KeyCode.I,
+    O=Enum.KeyCode.O, P=Enum.KeyCode.P, A=Enum.KeyCode.A, S=Enum.KeyCode.S,
+    D=Enum.KeyCode.D, F=Enum.KeyCode.F, G=Enum.KeyCode.G, H=Enum.KeyCode.H,
+    J=Enum.KeyCode.J, K=Enum.KeyCode.K, L=Enum.KeyCode.L, Z=Enum.KeyCode.Z,
+    X=Enum.KeyCode.X, C=Enum.KeyCode.C, V=Enum.KeyCode.V, B=Enum.KeyCode.B,
+    N=Enum.KeyCode.N, M=Enum.KeyCode.M,
+    q=Enum.KeyCode.Q, w=Enum.KeyCode.W, e=Enum.KeyCode.E, r=Enum.KeyCode.R,
+    t=Enum.KeyCode.T, y=Enum.KeyCode.Y, u=Enum.KeyCode.U, i=Enum.KeyCode.I,
+    o=Enum.KeyCode.O, p=Enum.KeyCode.P, a=Enum.KeyCode.A, s=Enum.KeyCode.S,
+    d=Enum.KeyCode.D, f=Enum.KeyCode.F, g=Enum.KeyCode.G, h=Enum.KeyCode.H,
+    j=Enum.KeyCode.J, k=Enum.KeyCode.K, l=Enum.KeyCode.L, z=Enum.KeyCode.Z,
+    x=Enum.KeyCode.X, c=Enum.KeyCode.C, v=Enum.KeyCode.V, b=Enum.KeyCode.B,
+    n=Enum.KeyCode.N, m=Enum.KeyCode.M,
+    ["1"]=Enum.KeyCode.One,   ["2"]=Enum.KeyCode.Two,
+    ["3"]=Enum.KeyCode.Three, ["4"]=Enum.KeyCode.Four,
+    ["5"]=Enum.KeyCode.Five,  ["6"]=Enum.KeyCode.Six,
+    ["7"]=Enum.KeyCode.Seven, ["8"]=Enum.KeyCode.Eight,
+    ["9"]=Enum.KeyCode.Nine,  ["0"]=Enum.KeyCode.Zero,
+}
+
+-- ========================================
+-- STATE VARIABLES
+-- ========================================
+
+local midiEvents = {}
+local isPlaying = false
+local isPaused = false
+local playSpeed = 1.0
+local playCoroutine = nil
+local keyButtons = {}
+local guiVisible = false
+local midiPanelVisible = false
+local isAnimating = false
+local loadedInfo = {}
+
+-- ========================================
+-- GUI SETUP
+-- ========================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "GuitarGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = playerGui
+
+-- ========================================
+-- TOGGLE BUTTON
+-- ========================================
+
+local ToggleBtn = Instance.new("ImageButton")
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Size = UDim2.new(0, 55, 0, 55)
+ToggleBtn.Position = UDim2.new(0, 10, 1, -65)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ToggleBtn.BorderSizePixel = 0
+ToggleBtn.ZIndex = 100
+ToggleBtn.Parent = ScreenGui
+
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(0, 150, 255)
+UIStroke.Thickness = 2
+UIStroke.Parent = ToggleBtn
+
+local ToggleIcon = Instance.new("TextLabel")
+ToggleIcon.Size = UDim2.new(1, 0, 1, 0)
+ToggleIcon.BackgroundTransparency = 1
+ToggleIcon.Text = "🎸"
+ToggleIcon.TextSize = 26
+ToggleIcon.ZIndex = 101
+ToggleIcon.Parent = ToggleBtn
+
+-- ========================================
+-- MAIN FRAME
+-- ========================================
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(1, 0, 0, 415)
+MainFrame.Position = UDim2.new(0, 0, 1, 5) -- Hidden
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+MainFrame.BorderSizePixel = 0
+MainFrame.ZIndex = 10
+MainFrame.Parent = ScreenGui
+
+-- Shadow effect
+local shadow = Instance.new("Frame")
+shadow.Size = UDim2.new(1, 4, 1, 4)
+shadow.Position = UDim2.new(0, -2, 0, -2)
+shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+shadow.BackgroundTransparency = 0.5
+shadow.BorderSizePixel = 0
+shadow.ZIndex = 9
+shadow.Parent = MainFrame
+Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 6)
+
+-- ========================================
+-- TOP BAR
+-- ========================================
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 46)
+TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TopBar.BorderSizePixel = 0
+TopBar.ZIndex = 11
+TopBar.Parent = MainFrame
+
+-- Fungsi buat tombol top bar
+local function makeTopBtn(txt, col, x, w, parent)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, w, 0, 36)
+    b.Position = UDim2.new(0, x, 0, 5)
+    b.BackgroundColor3 = col
+    b.BorderSizePixel = 0
+    b.Text = txt
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.TextSize = 12
+    b.Font = Enum.Font.GothamBold
+    b.ZIndex = 12
+    b.Parent = parent or TopBar
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+    return b
+end
+
+local gray = Color3.fromRGB(50, 50, 50)
+local tuningBtn  = makeTopBtn("TUNING",     gray,                      4,   95)
+local toneBtn    = makeTopBtn("TONE: DIST", gray,                      102, 105)
+local sheetBtn   = makeTopBtn("SHEET MUSIC",gray,                      210, 115)
+local helpBtn    = makeTopBtn("HELP",        Color3.fromRGB(0,180,0),   328,  75)
+local midiBtn    = makeTopBtn("🎵 MIDI",    Color3.fromRGB(140,0,200), 406,  80)
+local ringBtn    = makeTopBtn("RING: OFF",  gray,                      489, 100)
+
+-- ========================================
+-- KEYBOARD FRAME
+-- ========================================
+
+local KeyFrame = Instance.new("Frame")
+KeyFrame.Size = UDim2.new(1, 0, 0, 300)
+KeyFrame.Position = UDim2.new(0, 0, 0, 48)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+KeyFrame.BorderSizePixel = 0
+KeyFrame.ZIndex = 11
+KeyFrame.Parent = MainFrame
+
+-- Layout rows sesuai gambar
+local rows = {
+    {lbl="PEDALS", lblCol=Color3.fromRGB(120,0,220), keys={"~","!","@","#","$","%","^","&","*","(",")","-","+"}},
+    {lbl="",       lblCol=nil,                        keys={"Q","W","E","R","T","Y","U","I","O","P","{","}","|"}},
+    {lbl="CAPS",   lblCol=Color3.fromRGB(55,55,55),   keys={"`","1","2","3","4","5","6","7","8","9","0","-","="}},
+    {lbl="",       lblCol=nil,                        keys={"q","w","e","r","t","y","u","i","o","p","[","]","\\"}},
+    {lbl="CTRL",   lblCol=Color3.fromRGB(55,55,55),   keys={"a","s","d","f","g","h","j","k","l",";","'",":","\""}},
+    {lbl="",       lblCol=nil,                        keys={"z","x","c","v","b","n","m",",",".","/","<",">","?"}},
+}
+
+local ROW_H  = 46
+local KEY_W  = 50
+local LBL_W  = 72
+local START_Y = 4
+
+local function highlightKey(keyTxt, on)
+    local btn = keyButtons[keyTxt]
+    if btn then
+        local col = on and Color3.fromRGB(0, 200, 120) or Color3.fromRGB(48, 48, 48)
+        TweenService:Create(btn, TweenInfo.new(0.06), {BackgroundColor3 = col}):Play()
+    end
+end
+
+local function pressKey(keyTxt)
+    highlightKey(keyTxt, true)
+
+    local kc = keyToKeyCode[keyTxt]
+    if kc then
+        pcall(function()
+            VirtualInputManager:SendKeyEvent(true,  kc, false, game)
+            task.wait(0.08)
+            VirtualInputManager:SendKeyEvent(false, kc, false, game)
+        end)
+    end
+
+    task.delay(0.15, function()
+        highlightKey(keyTxt, false)
+    end)
+end
+
+-- Buat tombol keyboard
+for ri, row in ipairs(rows) do
+    local yPos = START_Y + (ri - 1) * ROW_H
+
+    -- Label kiri
+    if row.lbl ~= "" then
+        local lb = Instance.new("TextButton")
+        lb.Size = UDim2.new(0, LBL_W - 4, 0, ROW_H - 8)
+        lb.Position = UDim2.new(0, 2, 0, yPos + 4)
+        lb.BackgroundColor3 = row.lblCol
+        lb.BorderSizePixel = 0
+        lb.Text = row.lbl
+        lb.TextColor3 = Color3.fromRGB(255, 255, 255)
+        lb.TextSize = 12
+        lb.Font = Enum.Font.GothamBold
+        lb.ZIndex = 12
+        lb.Parent = KeyFrame
+        Instance.new("UICorner", lb).CornerRadius = UDim.new(0, 4)
+    end
+
+    -- Keys
+    for ki, keyTxt in ipairs(row.keys) do
+        local xPos = LBL_W + (ki - 1) * KEY_W
+
+        local kb = Instance.new("TextButton")
+        kb.Name = "Key_" .. keyTxt
+        kb.Size = UDim2.new(0, KEY_W - 4, 0, ROW_H - 8)
+        kb.Position = UDim2.new(0, xPos + 2, 0, yPos + 4)
+        kb.BackgroundColor3 = Color3.fromRGB(48, 48, 48)
+        kb.BorderSizePixel = 0
+        kb.Text = keyTxt
+        kb.TextColor3 = Color3.fromRGB(255, 255, 255)
+        kb.TextSize = 13
+        kb.Font = Enum.Font.GothamBold
+        kb.ZIndex = 12
+        kb.Parent = KeyFrame
+        Instance.new("UICorner", kb).CornerRadius = UDim.new(0, 4)
+
+        keyButtons[keyTxt] = kb
+
+        -- Touch / Click
+        kb.MouseButton1Down:Connect(function()
+            pressKey(keyTxt)
+        end)
+    end
+end
+
+-- ========================================
+-- BOTTOM BAR (ALT + SPACE)
+-- ========================================
+
+local BotBar = Instance.new("Frame")
+BotBar.Size = UDim2.new(1, 0, 0, 52)
+BotBar.Position = UDim2.new(0, 0, 0, 350)
+BotBar.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+BotBar.BorderSizePixel = 0
+BotBar.ZIndex = 11
+BotBar.Parent = MainFrame
+
+local function makeBotBtn(txt, x, w, col)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, w, 0, 42)
+    b.Position = UDim2.new(0, x, 0, 5)
+    b.BackgroundColor3 = col or Color3.fromRGB(48, 48, 48)
+    b.BorderSizePixel = 0
+    b.Text = txt
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.TextSize = 15
+    b.Font = Enum.Font.GothamBold
+    b.ZIndex = 12
+    b.Parent = BotBar
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+    return b
+end
+
+local altBtn   = makeBotBtn("ALT", 4, 155)
+local spaceBtn = makeBotBtn("SPACE (MUTE)", 163, 430)
+
+altBtn.MouseButton1Down:Connect(function()
+    TweenService:Create(altBtn, TweenInfo.new(0.05), {BackgroundColor3 = Color3.fromRGB(0,150,255)}):Play()
+    pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftAlt, false, game) end)
+end)
+altBtn.MouseButton1Up:Connect(function()
+    TweenService:Create(altBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(48,48,48)}):Play()
+    pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftAlt, false, game) end)
+end)
+
+spaceBtn.MouseButton1Down:Connect(function()
+    TweenService:Create(spaceBtn, TweenInfo.new(0.05), {BackgroundColor3 = Color3.fromRGB(200,50,50)}):Play()
+    pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game) end)
+end)
+spaceBtn.MouseButton1Up:Connect(function()
+    TweenService:Create(spaceBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(48,48,48)}):Play()
+    pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game) end)
+end)
+
+-- ========================================
+-- MIDI PANEL (Expanded)
+-- ========================================
+
+local MidiPanel = Instance.new("Frame")
+MidiPanel.Name = "MidiPanel"
+MidiPanel.Size = UDim2.new(1, 0, 0, 230)
+MidiPanel.Position = UDim2.new(0, 0, 0, 415)
+MidiPanel.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+MidiPanel.BorderSizePixel = 0
+MidiPanel.Visible = false
+MidiPanel.ZIndex = 11
+MidiPanel.Parent = MainFrame
+
+Instance.new("UICorner", MidiPanel).CornerRadius = UDim.new(0, 6)
+
+-- Judul MIDI Panel
+local midiTitle = Instance.new("TextLabel")
+midiTitle.Size = UDim2.new(1, 0, 0, 32)
+midiTitle.Position = UDim2.new(0, 0, 0, 2)
+midiTitle.BackgroundTransparency = 1
+midiTitle.Text = "🎵 MIDI AUTO PLAY (.mid file)"
+midiTitle.TextColor3 = Color3.fromRGB(255, 230, 50)
+midiTitle.TextSize = 15
+midiTitle.Font = Enum.Font.GothamBold
+midiTitle.ZIndex = 12
+midiTitle.Parent = MidiPanel
+
+-- URL Input Label
+local urlLbl = Instance.new("TextLabel")
+urlLbl.Size = UDim2.new(1, -10, 0, 22)
+urlLbl.Position = UDim2.new(0, 5, 0, 36)
+urlLbl.BackgroundTransparency = 1
+urlLbl.Text = "📎 GitHub Raw URL file .mid :"
+urlLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+urlLbl.TextSize = 12
+urlLbl.Font = Enum.Font.Gotham
+urlLbl.TextXAlignment = Enum.TextXAlignment.Left
+urlLbl.ZIndex = 12
+urlLbl.Parent = MidiPanel
+
+-- URL TextBox
+local urlBox = Instance.new("TextBox")
+urlBox.Size = UDim2.new(1, -10, 0, 38)
+urlBox.Position = UDim2.new(0, 5, 0, 60)
+urlBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+urlBox.BorderSizePixel = 0
+urlBox.Text = ""
+urlBox.PlaceholderText = "https://raw.githubusercontent.com/user/repo/main/song.mid"
+urlBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+urlBox.PlaceholderColor3 = Color3.fromRGB(110, 110, 130)
+urlBox.TextSize = 11
+urlBox.Font = Enum.Font.Gotham
+urlBox.ClearTextOnFocus = false
+urlBox.ZIndex = 12
+urlBox.TextXAlignment = Enum.TextXAlignment.Left
+urlBox.Parent = MidiPanel
+Instance.new("UICorner", urlBox).CornerRadius = UDim.new(0, 5)
+
+local urlPadding = Instance.new("UIPadding")
+urlPadding.PaddingLeft = UDim.new(0, 6)
+urlPadding.Parent = urlBox
+
+-- Info loaded
+local infoLbl = Instance.new("TextLabel")
+infoLbl.Size = UDim2.new(1, -10, 0, 22)
+infoLbl.Position = UDim2.new(0, 5, 0, 101)
+infoLbl.BackgroundTransparency = 1
+infoLbl.Text = "📄 Belum ada file dimuat"
+infoLbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+infoLbl.TextSize = 11
+infoLbl.Font = Enum.Font.Gotham
+infoLbl.TextXAlignment = Enum.TextXAlignment.Left
+infoLbl.ZIndex = 12
+infoLbl.Parent = MidiPanel
+
+-- Speed Label
+local spdLbl = Instance.new("TextLabel")
+spdLbl.Size = UDim2.new(0, 95, 0, 22)
+spdLbl.Position = UDim2.new(0, 5, 0, 126)
+spdLbl.BackgroundTransparency = 1
+spdLbl.Text = "⚡ Speed: 1.0x"
+spdLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+spdLbl.TextSize = 12
+spdLbl.Font = Enum.Font.Gotham
+spdLbl.TextXAlignment = Enum.TextXAlignment.Left
+spdLbl.ZIndex = 12
+spdLbl.Parent = MidiPanel
+
+-- Speed Slider Track
+local spdTrack = Instance.new("Frame")
+spdTrack.Size = UDim2.new(0, 220, 0, 18)
+spdTrack.Position = UDim2.new(0, 100, 0, 129)
+spdTrack.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+spdTrack.BorderSizePixel = 0
+spdTrack.ZIndex = 12
+spdTrack.Parent = MidiPanel
+Instance.new("UICorner", spdTrack).CornerRadius = UDim.new(0, 9)
+
+local spdFill = Instance.new("Frame")
+spdFill.Size = UDim2.new(0.33, 0, 1, 0) -- default 1x = 33%
+spdFill.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+spdFill.BorderSizePixel = 0
+spdFill.ZIndex = 13
+spdFill.Parent = spdTrack
+Instance.new("UICorner", spdFill).CornerRadius = UDim.new(0, 9)
+
+-- Slider handle
+local spdHandle = Instance.new("Frame")
+spdHandle.Size = UDim2.new(0, 20, 0, 20)
+spdHandle.AnchorPoint = Vector2.new(0.5, 0.5)
+spdHandle.Position = UDim2.new(0.33, 0, 0.5, 0)
+spdHandle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+spdHandle.BorderSizePixel = 0
+spdHandle.ZIndex = 14
+spdHandle.Parent = spdTrack
+Instance.new("UICorner", spdHandle).CornerRadius = UDim.new(1, 0)
+
+-- Control Buttons Row
+local function makeMidiCtrlBtn(txt, col, x, w)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, w, 0, 36)
+    b.Position = UDim2.new(0, x, 0, 157)
+    b.BackgroundColor3 = col
+    b.BorderSizePixel = 0
+    b.Text = txt
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.TextSize = 13
+    b.Font = Enum.Font.GothamBold
+    b.ZIndex = 12
+    b.Parent = MidiPanel
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+    return b
+end
+
+local loadBtn  = makeMidiCtrlBtn("📂 LOAD",    Color3.fromRGB(0,100,200),  5,  110)
+local playBtn  = makeMidiCtrlBtn("▶ PLAY",     Color3.fromRGB(0,170,0),   120,  90)
+local pauseBtn = makeMidiCtrlBtn("⏸ PAUSE",   Color3.fromRGB(200,140,0), 215,  90)
+local stopBtn  = makeMidiCtrlBtn("⏹ STOP",    Color3.fromRGB(200,0,0),   310,  85)
+
+-- Status Bar
+local statusLbl = Instance.new("TextLabel")
+statusLbl.Size = UDim2.new(1, -10, 0, 22)
+statusLbl.Position = UDim2.new(0, 5, 0, 200)
+statusLbl.BackgroundTransparency = 1
+statusLbl.Text = "⏺ Status: Siap"
+statusLbl.TextColor3 = Color3.fromRGB(150, 255, 150)
+statusLbl.TextSize = 12
+statusLbl.Font = Enum.Font.Gotham
+statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+statusLbl.ZIndex = 12
+statusLbl.Parent = MidiPanel
+
+-- Progress Bar
+local progressBg = Instance.new("Frame")
+progressBg.Size = UDim2.new(1, -10, 0, 6)
+progressBg.Position = UDim2.new(0, 5, 0, 222)
+progressBg.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+progressBg.BorderSizePixel = 0
+progressBg.ZIndex = 12
+progressBg.Parent = MidiPanel
+Instance.new("UICorner", progressBg).CornerRadius = UDim.new(0, 3)
+
+local progressFill = Instance.new("Frame")
+progressFill.Size = UDim2.new(0, 0, 1, 0)
+progressFill.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+progressFill.BorderSizePixel = 0
+progressFill.ZIndex = 13
+progressFill.Parent = progressBg
+Instance.new("UICorner", progressFill).CornerRadius = UDim.new(0, 3)
+
+-- ========================================
+-- SPEED SLIDER LOGIC
+-- ========================================
+
+local draggingSpeed = false
+
+local function updateSpeed(ratio)
+    ratio = math.clamp(ratio, 0, 1)
+    -- Range: 0.25x (kiri) sampai 3x (kanan)
+    playSpeed = 0.25 + ratio * 2.75
+    spdFill.Size = UDim2.new(ratio, 0, 1, 0)
+    spdHandle.Position = UDim2.new(ratio, 0, 0.5, 0)
+    spdLbl.Text = string.format("⚡ Speed: %.2fx", playSpeed)
+end
+
+updateSpeed(0.33) -- Default 1x
+
+spdTrack.InputBegan:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1
+    or inp.UserInputType == Enum.UserInputType.Touch then
+        draggingSpeed = true
+        local abs = spdTrack.AbsolutePosition
+        local sz  = spdTrack.AbsoluteSize
+        local ratio = (inp.Position.X - abs.X) / sz.X
+        updateSpeed(ratio)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(inp)
+    if draggingSpeed then
+        if inp.UserInputType == Enum.UserInputType.MouseMovement
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            local abs = spdTrack.AbsolutePosition
+            local sz  = spdTrack.AbsoluteSize
+            local ratio = (inp.Position.X - abs.X) / sz.X
+            updateSpeed(ratio)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(inp)
+    if inp.UserInputType == Enum.UserInputType.MouseButton1
+    or inp.UserInputType == Enum.UserInputType.Touch then
+        draggingSpeed = false
+    end
+end)
+
+-- ========================================
+-- MIDI LOAD & PLAY FUNCTIONS
+-- ========================================
+
+local function setStatus(txt, col)
+    statusLbl.Text = "⏺ " .. txt
+    statusLbl.TextColor3 = col or Color3.fromRGB(150, 255, 150)
+end
+
+local function stopPlay()
+    isPlaying = false
+    isPaused = false
+    if playCoroutine then
+        task.cancel(playCoroutine)
+        playCoroutine = nil
+    end
+    progressFill.Size = UDim2.new(0, 0, 1, 0)
+    pauseBtn.Text = "⏸ PAUSE"
+    pauseBtn.BackgroundColor3 = Color3.fromRGB(200, 140, 0)
+end
+
+local function loadMidi()
+    local url = urlBox.Text:match("^%s*(.-)%s*$")
+
+    if url == "" then
+        setStatus("Masukkan URL terlebih dahulu!", Color3.fromRGB(255,100,100))
+        return
+    end
+
+    -- Konversi github.com/blob/ -> raw.githubusercontent.com
+    url = url:gsub("https://github%.com/([^/]+)/([^/]+)/blob/(.+)",
+                   "https://raw.githubusercontent.com/%1/%2/%3")
+
+    setStatus("Mengunduh file .mid ...", Color3.fromRGB(255, 200, 0))
+    infoLbl.Text = "📥 Sedang mengunduh..."
+    infoLbl.TextColor3 = Color3.fromRGB(255, 200, 0)
+
+    task.spawn(function()
+        local ok, result = pcall(function()
+            return HttpService:GetAsync(url, true)
+        end)
+
+        if not ok then
+            setStatus("Gagal download! Cek URL / HttpService", Color3.fromRGB(255,80,80))
+            infoLbl.Text = "❌ Error: " .. tostring(result):sub(1, 60)
+            infoLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
+            warn("[MidiGUI] HTTP Error:", result)
+            return
+        end
+
+        -- Parse MIDI binary
+        setStatus("Parsing file .mid ...", Color3.fromRGB(255, 200, 0))
+        local events, err, info = MidiParser.parse(result)
+
+        if err then
+            setStatus("Parse gagal: " .. err, Color3.fromRGB(255,80,80))
+            infoLbl.Text = "❌ " .. err
+            infoLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
+            warn("[MidiGUI] Parse error:", err)
+            return
+        end
+
+        midiEvents = events
+        loadedInfo = info or {}
+        stopPlay()
+
+        local dur = 0
+        if #midiEvents > 0 then
+            dur = midiEvents[#midiEvents].time
+        end
+
+        setStatus(string.format("✅ Loaded! %d notes | %.1f detik", #midiEvents, dur),
+                  Color3.fromRGB(100, 255, 150))
+        infoLbl.Text = string.format("✅ Format MIDI %d | %d Track | %d Notes | %.1fs",
+            loadedInfo.format or 0,
+            loadedInfo.numTracks or 0,
+            #midiEvents, dur)
+        infoLbl.TextColor3 = Color3.fromRGB(100, 255, 150)
+    end)
+end
+
+local function playMidi()
+    if #midiEvents == 0 then
+        setStatus("Load file .mid dulu!", Color3.fromRGB(255, 150, 0))
+        return
+    end
+    if isPlaying then return end
+
+    isPlaying = true
+    isPaused = false
+    setStatus("▶ Sedang main...", Color3.fromRGB(50, 255, 150))
+
+    local totalNotes = #midiEvents
+    local totalTime = midiEvents[totalNotes] and midiEvents[totalNotes].time or 1
+
+    playCoroutine = task.spawn(function()
+        local startTick = tick()
+        local eventIndex = 1
+        local pauseOffset = 0
+        local pauseStart = 0
+
+        while eventIndex <= totalNotes and isPlaying do
+            if isPaused then
+                if pauseStart == 0 then
+                    pauseStart = tick()
+                end
+                task.wait(0.05)
+                continue
+            else
+                if pauseStart > 0 then
+                    pauseOffset = pauseOffset + (tick() - pauseStart)
+                    pauseStart = 0
+                end
+            end
+
+            local evt = midiEvents[eventIndex]
+            local targetTime = evt.time / playSpeed
+            local elapsed = tick() - startTick - pauseOffset
+
+            local waitTime = targetTime - elapsed
+            if waitTime > 0 then
+                task.wait(waitTime)
+            end
+
+            if not isPlaying then break end
+            if isPaused then continue end
+
+            -- Cari key untuk note ini
+            local key = noteToKey[evt.note]
+
+            -- Transpose jika note di luar range
+            if not key then
+                -- Coba oktaf di atas/bawah
+                local shifted = evt.note
+                while shifted > 113 do shifted = shifted - 12 end
+                while shifted < 36  do shifted = shifted + 12 end
+                key = noteToKey[shifted]
+            end
+
+            if key and evt.velocity > 0 then
+                pressKey(key)
+            end
+
+            -- Update progress bar
+            local progress = math.min(evt.time / totalTime, 1)
+            progressFill.Size = UDim2.new(progress, 0, 1, 0)
+
+            -- Update status setiap 10 notes
+            if eventIndex % 10 == 0 then
+                setStatus(string.format("▶ %d/%d notes | %.1fs", eventIndex, totalNotes, evt.time),
+                          Color3.fromRGB(50, 255, 150))
+            end
+
+            eventIndex = eventIndex + 1
+        end
+
+        -- Selesai
+        if isPlaying then
+            isPlaying = false
+            setStatus("✅ Selesai!", Color3.fromRGB(100, 255, 100))
+            progressFill.Size = UDim2.new(1, 0, 1, 0)
+            task.wait(1)
+            progressFill.Size = UDim2.new(0, 0, 1, 0)
+        end
+    end)
+end
+
+-- ========================================
+-- BUTTON CONNECTIONS (MIDI)
+-- ========================================
+
+loadBtn.MouseButton1Click:Connect(loadMidi)
+
+playBtn.MouseButton1Click:Connect(function()
+    if not isPlaying then
+        playMidi()
+    end
+end)
+
+pauseBtn.MouseButton1Click:Connect(function()
+    if not isPlaying then return end
+    isPaused = not isPaused
+    if isPaused then
+        pauseBtn.Text = "▶ LANJUT"
+        pauseBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        setStatus("⏸ Dijeda", Color3.fromRGB(255, 200, 0))
+    else
+        pauseBtn.Text = "⏸ PAUSE"
+        pauseBtn.BackgroundColor3 = Color3.fromRGB(200, 140, 0)
+        setStatus("▶ Dilanjutkan...", Color3.fromRGB(50, 255, 150))
+    end
+end)
+
+stopBtn.MouseButton1Click:Connect(function()
+    if isPlaying or isPaused then
+        stopPlay()
+        setStatus("⏹ Dihentikan", Color3.fromRGB(255, 100, 100))
+    end
+end)
+
+-- ========================================
+-- MIDI PANEL TOGGLE
+-- ========================================
+
+midiBtn.MouseButton1Click:Connect(function()
+    midiPanelVisible = not midiPanelVisible
+    MidiPanel.Visible = midiPanelVisible
+
+    local baseH = 415
+    local addH  = midiPanelVisible and 235 or 0
+    local totalH = baseH + addH
+
+    MainFrame.Size = UDim2.new(1, 0, 0, totalH)
+
+    if guiVisible then
+        MainFrame.Position = UDim2.new(0, 0, 1, -totalH)
+    end
+
+    midiBtn.BackgroundColor3 = midiPanelVisible
+        and Color3.fromRGB(200, 0, 255)
+        or  Color3.fromRGB(140, 0, 200)
+end)
+
+-- ========================================
+-- TOGGLE GUI ANIMATION
+-- ========================================
+
+local function toggleGui()
+    if isAnimating then return end
+    isAnimating = true
+    guiVisible = not guiVisible
+
+    local totalH = midiPanelVisible and 650 or 415
+    local targetPos = guiVisible
+        and UDim2.new(0, 0, 1, -totalH)
+        or  UDim2.new(0, 0, 1, 5)
+
+    local tween = TweenService:Create(
+        MainFrame,
+        TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+        {Position = targetPos}
+    )
+    tween:Play()
+    tween.Completed:Connect(function() isAnimating = false end)
+
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {
+        BackgroundColor3 = guiVisible
+            and Color3.fromRGB(0, 100, 200)
+            or  Color3.fromRGB(30, 30, 30)
+    }):Play()
+end
+
+ToggleBtn.MouseButton1Click:Connect(toggleGui)
+
+-- F1 shortcut (PC)
+UserInputService.InputBegan:Connect(function(inp, gpe)
+    if gpe then return end
+    if inp.KeyCode == Enum.KeyCode.F1 then toggleGui() end
+end)
+
+-- Ring toggle
+local ringOn = false
+ringBtn.MouseButton1Click:Connect(function()
+    ringOn = not ringOn
+    ringBtn.Text = ringOn and "RING: ON" or "RING: OFF"
+    ringBtn.BackgroundColor3 = ringOn
+        and Color3.fromRGB(0, 180, 0)
+        or  Color3.fromRGB(50, 50, 50)
+end)
+
+-- ========================================
+-- MOBILE DETECT
+-- ========================================
+
+if UserInputService.TouchEnabled then
+    -- Perbesar toggle button untuk mobile
+    ToggleBtn.Size = UDim2.new(0, 62, 0, 62)
+    ToggleIcon.TextSize = 30
+end
+
+-- ========================================
+-- READY
+-- ========================================
+
+print("✅ Guitar GUI loaded! F1 = toggle | Tap 🎸 di layar")
+print("📌 Format URL: https://raw.githubusercontent.com/USER/REPO/main/LAGU.mid")
