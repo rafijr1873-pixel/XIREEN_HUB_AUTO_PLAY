@@ -1,4 +1,4 @@
--- Xureny X Hub - Vehicle Control Script
+-- Xureny X Hub - Vehicle Control Script FIXED
 -- Made for Brookhaven RP
 
 local Players = game:GetService("Players")
@@ -10,1161 +10,848 @@ local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
 -- ========================================
--- LOADING SCREEN
+-- LOADING SCREEN (COMPACT)
 -- ========================================
 
 local LoadingGui = Instance.new("ScreenGui")
-LoadingGui.Name = "XurenyLoadingScreen"
+LoadingGui.Name = "XurenyLoading"
 LoadingGui.ResetOnSpawn = false
-LoadingGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 LoadingGui.Parent = PlayerGui
 
-local LoadingFrame = Instance.new("Frame")
-LoadingFrame.Size = UDim2.new(1, 0, 1, 0)
-LoadingFrame.Position = UDim2.new(0, 0, 0, 0)
-LoadingFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 15)
-LoadingFrame.BorderSizePixel = 0
-LoadingFrame.Parent = LoadingGui
+-- Dark overlay (kecil, bukan fullscreen)
+local LoadBG = Instance.new("Frame")
+LoadBG.Size = UDim2.new(0, 320, 0, 160)
+LoadBG.Position = UDim2.new(0.5, -160, 0.5, -80)
+LoadBG.BackgroundColor3 = Color3.fromRGB(8, 8, 20)
+LoadBG.BorderSizePixel = 0
+LoadBG.Parent = LoadingGui
 
--- Background gradient
-local BGGradient = Instance.new("UIGradient")
-BGGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(5, 5, 20)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(10, 0, 30)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 20))
+local LoadBGCorner = Instance.new("UICorner")
+LoadBGCorner.CornerRadius = UDim.new(0, 20)
+LoadBGCorner.Parent = LoadBG
+
+local LoadBGStroke = Instance.new("UIStroke")
+LoadBGStroke.Color = Color3.fromRGB(120, 0, 255)
+LoadBGStroke.Thickness = 2
+LoadBGStroke.Parent = LoadBG
+
+-- Logo row
+local LogoLabel = Instance.new("TextLabel")
+LogoLabel.Size = UDim2.new(0, 40, 0, 40)
+LogoLabel.Position = UDim2.new(0, 15, 0, 15)
+LogoLabel.BackgroundColor3 = Color3.fromRGB(100, 0, 220)
+LogoLabel.Text = "X"
+LogoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+LogoLabel.TextScaled = true
+LogoLabel.Font = Enum.Font.GothamBold
+LogoLabel.BorderSizePixel = 0
+LogoLabel.Parent = LoadBG
+
+local LogoCorner = Instance.new("UICorner")
+LogoCorner.CornerRadius = UDim.new(0, 10)
+LogoCorner.Parent = LogoLabel
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(0, 230, 0, 25)
+TitleLabel.Position = UDim2.new(0, 65, 0, 12)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "XURENY X HUB"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextScaled = true
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = LoadBG
+
+local SubLabel = Instance.new("TextLabel")
+SubLabel.Size = UDim2.new(0, 230, 0, 18)
+SubLabel.Position = UDim2.new(0, 65, 0, 37)
+SubLabel.BackgroundTransparency = 1
+SubLabel.Text = "Vehicle Control System"
+SubLabel.TextColor3 = Color3.fromRGB(180, 100, 255)
+SubLabel.TextScaled = true
+SubLabel.Font = Enum.Font.Gotham
+SubLabel.TextXAlignment = Enum.TextXAlignment.Left
+SubLabel.Parent = LoadBG
+
+-- Status text
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 0, 20)
+StatusLabel.Position = UDim2.new(0, 10, 0, 75)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Memuat..."
+StatusLabel.TextColor3 = Color3.fromRGB(200, 150, 255)
+StatusLabel.TextScaled = true
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Parent = LoadBG
+
+-- Loading bar bg
+local BarBG = Instance.new("Frame")
+BarBG.Size = UDim2.new(1, -20, 0, 12)
+BarBG.Position = UDim2.new(0, 10, 0, 100)
+BarBG.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+BarBG.BorderSizePixel = 0
+BarBG.Parent = LoadBG
+
+local BarBGCorner = Instance.new("UICorner")
+BarBGCorner.CornerRadius = UDim.new(1, 0)
+BarBGCorner.Parent = BarBG
+
+-- Loading bar fill
+local BarFill = Instance.new("Frame")
+BarFill.Size = UDim2.new(0, 0, 1, 0)
+BarFill.BackgroundColor3 = Color3.fromRGB(120, 0, 255)
+BarFill.BorderSizePixel = 0
+BarFill.Parent = BarBG
+
+local BarFillCorner = Instance.new("UICorner")
+BarFillCorner.CornerRadius = UDim.new(1, 0)
+BarFillCorner.Parent = BarFill
+
+local BarFillGrad = Instance.new("UIGradient")
+BarFillGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 0, 180)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 80, 255))
 })
-BGGradient.Rotation = 45
-BGGradient.Parent = LoadingFrame
+BarFillGrad.Parent = BarFill
 
--- Animated particles (fake)
-for i = 1, 20 do
-    local Particle = Instance.new("Frame")
-    Particle.Size = UDim2.new(0, math.random(2, 5), 0, math.random(2, 5))
-    Particle.Position = UDim2.new(math.random(0, 100)/100, 0, math.random(0, 100)/100, 0)
-    Particle.BackgroundColor3 = Color3.fromRGB(150, 0, 255)
-    Particle.BorderSizePixel = 0
-    Particle.BackgroundTransparency = math.random(3, 8)/10
-    Particle.Parent = LoadingFrame
-    
-    local PCorner = Instance.new("UICorner")
-    PCorner.CornerRadius = UDim.new(1, 0)
-    PCorner.Parent = Particle
-end
+-- Percent label
+local PctLabel = Instance.new("TextLabel")
+PctLabel.Size = UDim2.new(1, -20, 0, 18)
+PctLabel.Position = UDim2.new(0, 10, 0, 118)
+PctLabel.BackgroundTransparency = 1
+PctLabel.Text = "0%"
+PctLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+PctLabel.TextScaled = true
+PctLabel.Font = Enum.Font.GothamBold
+PctLabel.TextXAlignment = Enum.TextXAlignment.Right
+PctLabel.Parent = LoadBG
 
--- Logo Container
-local LogoContainer = Instance.new("Frame")
-LogoContainer.Size = UDim2.new(0, 400, 0, 100)
-LogoContainer.Position = UDim2.new(0.5, -200, 0.3, -50)
-LogoContainer.BackgroundTransparency = 1
-LogoContainer.Parent = LoadingFrame
+local CreditLabel = Instance.new("TextLabel")
+CreditLabel.Size = UDim2.new(1, -20, 0, 15)
+CreditLabel.Position = UDim2.new(0, 10, 0, 138)
+CreditLabel.BackgroundTransparency = 1
+CreditLabel.Text = "© Xureny X Hub v1.0"
+CreditLabel.TextColor3 = Color3.fromRGB(100, 100, 140)
+CreditLabel.TextScaled = true
+CreditLabel.Font = Enum.Font.Gotham
+CreditLabel.Parent = LoadBG
 
--- X Logo
-local XLogo = Instance.new("TextLabel")
-XLogo.Size = UDim2.new(0, 80, 0, 80)
-XLogo.Position = UDim2.new(0, 10, 0, 10)
-XLogo.BackgroundColor3 = Color3.fromRGB(120, 0, 255)
-XLogo.Text = "X"
-XLogo.TextColor3 = Color3.fromRGB(255, 255, 255)
-XLogo.TextScaled = true
-XLogo.Font = Enum.Font.GothamBold
-XLogo.BorderSizePixel = 0
-XLogo.Parent = LogoContainer
+-- ========================================
+-- LOADING ANIMATION (FAST, NO STUCK)
+-- ========================================
 
-local XLogoCorner = Instance.new("UICorner")
-XLogoCorner.CornerRadius = UDim.new(0, 15)
-XLogoCorner.Parent = XLogo
-
--- Main Title
-local MainTitle = Instance.new("TextLabel")
-MainTitle.Size = UDim2.new(0, 300, 0, 50)
-MainTitle.Position = UDim2.new(0, 100, 0, 5)
-MainTitle.BackgroundTransparency = 1
-MainTitle.Text = "XURENY X HUB"
-MainTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-MainTitle.TextScaled = true
-MainTitle.Font = Enum.Font.GothamBold
-MainTitle.Parent = LogoContainer
-
-local TitleGradient = Instance.new("UIGradient")
-TitleGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 100, 255)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 200, 255))
-})
-TitleGradient.Parent = MainTitle
-
--- Subtitle
-local SubTitle = Instance.new("TextLabel")
-SubTitle.Size = UDim2.new(0, 300, 0, 30)
-SubTitle.Position = UDim2.new(0, 100, 0, 55)
-SubTitle.BackgroundTransparency = 1
-SubTitle.Text = "Vehicle Control System"
-SubTitle.TextColor3 = Color3.fromRGB(180, 100, 255)
-SubTitle.TextScaled = true
-SubTitle.Font = Enum.Font.Gotham
-SubTitle.Parent = LogoContainer
-
--- Version Label
-local VersionLabel = Instance.new("TextLabel")
-VersionLabel.Size = UDim2.new(0, 200, 0, 25)
-VersionLabel.Position = UDim2.new(0.5, -100, 0.5, 0)
-VersionLabel.BackgroundTransparency = 1
-VersionLabel.Text = "Version 1.0 | Brookhaven RP"
-VersionLabel.TextColor3 = Color3.fromRGB(150, 150, 180)
-VersionLabel.TextScaled = true
-VersionLabel.Font = Enum.Font.Gotham
-VersionLabel.Parent = LoadingFrame
-
--- Loading Bar Container
-local LoadBarContainer = Instance.new("Frame")
-LoadBarContainer.Size = UDim2.new(0, 500, 0, 20)
-LoadBarContainer.Position = UDim2.new(0.5, -250, 0.65, 0)
-LoadBarContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-LoadBarContainer.BorderSizePixel = 0
-LoadBarContainer.Parent = LoadingFrame
-
-local LoadBarCorner = Instance.new("UICorner")
-LoadBarCorner.CornerRadius = UDim.new(1, 0)
-LoadBarCorner.Parent = LoadBarContainer
-
-local LoadBar = Instance.new("Frame")
-LoadBar.Size = UDim2.new(0, 0, 1, 0)
-LoadBar.Position = UDim2.new(0, 0, 0, 0)
-LoadBar.BackgroundColor3 = Color3.fromRGB(120, 0, 255)
-LoadBar.BorderSizePixel = 0
-LoadBar.Parent = LoadBarContainer
-
-local LoadBarGradient = Instance.new("UIGradient")
-LoadBarGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 0, 200)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 100, 255))
-})
-LoadBarGradient.Parent = LoadBar
-
-local LoadBarCorner2 = Instance.new("UICorner")
-LoadBarCorner2.CornerRadius = UDim.new(1, 0)
-LoadBarCorner2.Parent = LoadBar
-
--- Loading Text
-local LoadingText = Instance.new("TextLabel")
-LoadingText.Size = UDim2.new(0, 500, 0, 30)
-LoadingText.Position = UDim2.new(0.5, -250, 0.72, 0)
-LoadingText.BackgroundTransparency = 1
-LoadingText.Text = "Memuat sistem..."
-LoadingText.TextColor3 = Color3.fromRGB(200, 150, 255)
-LoadingText.TextScaled = true
-LoadingText.Font = Enum.Font.Gotham
-LoadingText.Parent = LoadingFrame
-
--- Percentage Text
-local PercentText = Instance.new("TextLabel")
-PercentText.Size = UDim2.new(0, 100, 0, 25)
-PercentText.Position = UDim2.new(0.5, -50, 0.79, 0)
-PercentText.BackgroundTransparency = 1
-PercentText.Text = "0%"
-PercentText.TextColor3 = Color3.fromRGB(255, 255, 255)
-PercentText.TextScaled = true
-PercentText.Font = Enum.Font.GothamBold
-PercentText.Parent = LoadingFrame
-
--- Copyright
-local CopyRight = Instance.new("TextLabel")
-CopyRight.Size = UDim2.new(0, 400, 0, 20)
-CopyRight.Position = UDim2.new(0.5, -200, 0.95, 0)
-CopyRight.BackgroundTransparency = 1
-CopyRight.Text = "© 2024 Xureny X Hub | All Rights Reserved"
-CopyRight.TextColor3 = Color3.fromRGB(100, 100, 130)
-CopyRight.TextScaled = true
-CopyRight.Font = Enum.Font.Gotham
-CopyRight.Parent = LoadingFrame
-
--- Loading Animation
-local loadingMessages = {
-    "Menginisialisasi sistem...",
-    "Memuat kontrol kendaraan...",
-    "Mengkonfigurasi turbo boost...",
-    "Menyiapkan kecepatan maksimum...",
-    "Memuat antarmuka pengguna...",
-    "Menghubungkan ke server...",
-    "Memuat efek visual...",
-    "Hampir selesai...",
-    "Xureny X Hub siap!"
+local msgs = {
+    [10]  = "Inisialisasi...",
+    [30]  = "Memuat kontrol...",
+    [55]  = "Menyiapkan turbo...",
+    [80]  = "Memuat UI...",
+    [100] = "Siap!"
 }
 
-local function animateLoading()
+local function runLoading()
     for i = 1, 100 do
-        local msgIndex = math.ceil(i / (100 / #loadingMessages))
-        msgIndex = math.min(msgIndex, #loadingMessages)
-        LoadingText.Text = loadingMessages[msgIndex]
-        
-        TweenService:Create(LoadBar, TweenInfo.new(0.05), {
-            Size = UDim2.new(i/100, 0, 1, 0)
-        }):Play()
-        
-        PercentText.Text = i .. "%"
-        task.wait(0.05)
+        -- update bar
+        BarFill.Size = UDim2.new(i / 100, 0, 1, 0)
+        PctLabel.Text = i .. "%"
+
+        -- update status text
+        for threshold, txt in pairs(msgs) do
+            if i == threshold then
+                StatusLabel.Text = txt
+            end
+        end
+
+        task.wait(0.018) -- total ~1.8 detik
     end
-    
-    task.wait(0.5)
-    
-    -- Fade out loading screen
-    TweenService:Create(LoadingFrame, TweenInfo.new(1), {
+
+    task.wait(0.4)
+
+    -- Fade out
+    local fadeTween = TweenService:Create(LoadBG, TweenInfo.new(0.5), {
         BackgroundTransparency = 1
-    }):Play()
-    
-    for _, child in pairs(LoadingFrame:GetDescendants()) do
-        if child:IsA("TextLabel") or child:IsA("Frame") then
-            TweenService:Create(child, TweenInfo.new(1), {
-                BackgroundTransparency = 1,
-                TextTransparency = 1
-            }):Play()
+    })
+    fadeTween:Play()
+
+    for _, v in ipairs(LoadBG:GetDescendants()) do
+        if v:IsA("TextLabel") or v:IsA("Frame") then
+            pcall(function()
+                TweenService:Create(v, TweenInfo.new(0.5), {
+                    BackgroundTransparency = 1,
+                    TextTransparency = 1
+                }):Play()
+            end)
         end
     end
-    
-    task.wait(1)
+
+    task.wait(0.6)
     LoadingGui:Destroy()
-    
-    -- Start main script after loading
-    initMainScript()
+
+    -- Jalankan script utama
+    initMain()
 end
 
 -- ========================================
--- MAIN VEHICLE CONTROL SCRIPT
+-- MAIN SCRIPT
 -- ========================================
 
-function initMainScript()
-    
-    -- Variables
-    local currentVehicle = nil
-    local isMenuVisible = false
-    local autoTurbo3 = false
+function initMain()
+
+    local autoTurbo3   = false
     local autoMaxSpeed = false
-    local isGassing = false
-    local isBraking = false
-    local isReversing = false
-    local currentSpeed = 0
-    local menuConnection = nil
-    
-    -- Settings
-    local TURBO3_SPEED = 150
-    local MAX_SPEED = 350
-    local NORMAL_SPEED = 80
-    
-    -- Main GUI
-    local MainGui = Instance.new("ScreenGui")
-    MainGui.Name = "XurenyVehicleHub"
-    MainGui.ResetOnSpawn = false
-    MainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    MainGui.Parent = PlayerGui
-    
-    -- ========================================
-    -- VEHICLE DETECTION NOTIFICATION
-    -- ========================================
-    
-    local NotifFrame = Instance.new("Frame")
-    NotifFrame.Size = UDim2.new(0, 300, 0, 60)
-    NotifFrame.Position = UDim2.new(0.5, -150, 0, -70)
-    NotifFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-    NotifFrame.BorderSizePixel = 0
-    NotifFrame.Parent = MainGui
-    
-    local NotifCorner = Instance.new("UICorner")
-    NotifCorner.CornerRadius = UDim.new(0, 15)
-    NotifCorner.Parent = NotifFrame
-    
-    local NotifStroke = Instance.new("UIStroke")
-    NotifStroke.Color = Color3.fromRGB(120, 0, 255)
-    NotifStroke.Thickness = 2
-    NotifStroke.Parent = NotifFrame
-    
-    local NotifText = Instance.new("TextLabel")
-    NotifText.Size = UDim2.new(1, 0, 1, 0)
-    NotifText.BackgroundTransparency = 1
-    NotifText.Text = "🚗 Kendaraan Terdeteksi!"
-    NotifText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    NotifText.TextScaled = true
-    NotifText.Font = Enum.Font.GothamBold
-    NotifText.Parent = NotifFrame
-    
-    local function showNotif(text, color)
-        NotifText.Text = text
-        NotifStroke.Color = color or Color3.fromRGB(120, 0, 255)
-        
-        TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
-            Position = UDim2.new(0.5, -150, 0, 10)
+    local godMode      = false
+    local isMenuOpen   = false
+    local prevVehicle  = nil
+
+    local SPEED_NORMAL = 80
+    local SPEED_TURBO3 = 150
+    local SPEED_MAX    = 350
+
+    -- ===== GUI =====
+    local Gui = Instance.new("ScreenGui")
+    Gui.Name = "XurenyVehicleHub"
+    Gui.ResetOnSpawn = false
+    Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    Gui.Parent = PlayerGui
+
+    -- ===== NOTIFICATION =====
+    local Notif = Instance.new("Frame")
+    Notif.Size = UDim2.new(0, 280, 0, 45)
+    Notif.Position = UDim2.new(0.5, -140, 0, -60)
+    Notif.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
+    Notif.BorderSizePixel = 0
+    Notif.ZIndex = 20
+    Notif.Parent = Gui
+
+    local NCorner = Instance.new("UICorner")
+    NCorner.CornerRadius = UDim.new(0, 12)
+    NCorner.Parent = Notif
+
+    local NStroke = Instance.new("UIStroke")
+    NStroke.Thickness = 2
+    NStroke.Color = Color3.fromRGB(120, 0, 255)
+    NStroke.Parent = Notif
+
+    local NText = Instance.new("TextLabel")
+    NText.Size = UDim2.new(1, -10, 1, 0)
+    NText.Position = UDim2.new(0, 5, 0, 0)
+    NText.BackgroundTransparency = 1
+    NText.Text = ""
+    NText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    NText.TextScaled = true
+    NText.Font = Enum.Font.GothamBold
+    NText.ZIndex = 21
+    NText.Parent = Notif
+
+    local notifActive = false
+    local function showNotif(txt, col)
+        NText.Text = txt
+        NStroke.Color = col or Color3.fromRGB(120, 0, 255)
+        notifActive = true
+
+        TweenService:Create(Notif, TweenInfo.new(0.35, Enum.EasingStyle.Back), {
+            Position = UDim2.new(0.5, -140, 0, 12)
         }):Play()
-        
-        task.delay(2.5, function()
-            TweenService:Create(NotifFrame, TweenInfo.new(0.5), {
-                Position = UDim2.new(0.5, -150, 0, -70)
-            }):Play()
+
+        task.delay(2.2, function()
+            if notifActive then
+                notifActive = false
+                TweenService:Create(Notif, TweenInfo.new(0.3), {
+                    Position = UDim2.new(0.5, -140, 0, -60)
+                }):Play()
+            end
         end)
     end
-    
-    -- ========================================
-    -- MAIN MENU FRAME
-    -- ========================================
-    
-    local MenuFrame = Instance.new("Frame")
-    MenuFrame.Size = UDim2.new(0, 380, 0, 550)
-    MenuFrame.Position = UDim2.new(0, 20, 0.5, -275)
-    MenuFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
-    MenuFrame.BorderSizePixel = 0
-    MenuFrame.Visible = false
-    MenuFrame.Parent = MainGui
-    
+
+    -- ===== FLOATING TOGGLE BUTTON =====
+    local FloatBtn = Instance.new("TextButton")
+    FloatBtn.Size = UDim2.new(0, 55, 0, 55)
+    FloatBtn.Position = UDim2.new(0, 15, 0.5, -27)
+    FloatBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 180)
+    FloatBtn.Text = "🚗"
+    FloatBtn.TextScaled = true
+    FloatBtn.BorderSizePixel = 0
+    FloatBtn.Visible = false
+    FloatBtn.ZIndex = 15
+    FloatBtn.Parent = Gui
+
+    local FBCorner = Instance.new("UICorner")
+    FBCorner.CornerRadius = UDim.new(0, 14)
+    FBCorner.Parent = FloatBtn
+
+    local FBStroke = Instance.new("UIStroke")
+    FBStroke.Color = Color3.fromRGB(160, 60, 255)
+    FBStroke.Thickness = 2
+    FBStroke.Parent = FloatBtn
+
+    -- Badge "X"
+    local Badge = Instance.new("TextLabel")
+    Badge.Size = UDim2.new(0, 18, 0, 18)
+    Badge.Position = UDim2.new(1, -8, 0, -8)
+    Badge.BackgroundColor3 = Color3.fromRGB(255, 0, 80)
+    Badge.Text = "X"
+    Badge.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Badge.TextScaled = true
+    Badge.Font = Enum.Font.GothamBold
+    Badge.BorderSizePixel = 0
+    Badge.ZIndex = 16
+    Badge.Parent = FloatBtn
+
+    local BadgeCorner = Instance.new("UICorner")
+    BadgeCorner.CornerRadius = UDim.new(0, 5)
+    BadgeCorner.Parent = Badge
+
+    -- ===== MAIN MENU FRAME =====
+    local Menu = Instance.new("Frame")
+    Menu.Size = UDim2.new(0, 300, 0, 490)
+    Menu.Position = UDim2.new(0, -320, 0.5, -245)
+    Menu.BackgroundColor3 = Color3.fromRGB(10, 10, 22)
+    Menu.BorderSizePixel = 0
+    Menu.Visible = false
+    Menu.ZIndex = 10
+    Menu.Parent = Gui
+
     local MenuCorner = Instance.new("UICorner")
-    MenuCorner.CornerRadius = UDim.new(0, 20)
-    MenuCorner.Parent = MenuFrame
-    
+    MenuCorner.CornerRadius = UDim.new(0, 18)
+    MenuCorner.Parent = Menu
+
     local MenuStroke = Instance.new("UIStroke")
-    MenuStroke.Color = Color3.fromRGB(120, 0, 255)
+    MenuStroke.Color = Color3.fromRGB(110, 0, 240)
     MenuStroke.Thickness = 2
-    MenuStroke.Parent = MenuFrame
-    
-    local MenuGradient = Instance.new("UIGradient")
-    MenuGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 10, 35)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 5, 25))
-    })
-    MenuGradient.Rotation = 135
-    MenuGradient.Parent = MenuFrame
-    
+    MenuStroke.Parent = Menu
+
     -- Header
-    local HeaderFrame = Instance.new("Frame")
-    HeaderFrame.Size = UDim2.new(1, 0, 0, 70)
-    HeaderFrame.Position = UDim2.new(0, 0, 0, 0)
-    HeaderFrame.BackgroundColor3 = Color3.fromRGB(80, 0, 180)
-    HeaderFrame.BorderSizePixel = 0
-    HeaderFrame.Parent = MenuFrame
-    
-    local HeaderCorner = Instance.new("UICorner")
-    HeaderCorner.CornerRadius = UDim.new(0, 20)
-    HeaderCorner.Parent = HeaderFrame
-    
-    local HeaderFix = Instance.new("Frame")
-    HeaderFix.Size = UDim2.new(1, 0, 0.5, 0)
-    HeaderFix.Position = UDim2.new(0, 0, 0.5, 0)
-    HeaderFix.BackgroundColor3 = Color3.fromRGB(80, 0, 180)
-    HeaderFix.BorderSizePixel = 0
-    HeaderFix.Parent = HeaderFrame
-    
-    local HeaderGrad = Instance.new("UIGradient")
-    HeaderGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 0, 220)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 0, 150))
-    })
-    HeaderGrad.Parent = HeaderFrame
-    
-    -- Logo in header
-    local HeaderLogo = Instance.new("TextLabel")
-    HeaderLogo.Size = UDim2.new(0, 45, 0, 45)
-    HeaderLogo.Position = UDim2.new(0, 12, 0.5, -22)
-    HeaderLogo.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    HeaderLogo.Text = "X"
-    HeaderLogo.TextColor3 = Color3.fromRGB(80, 0, 180)
-    HeaderLogo.TextScaled = true
-    HeaderLogo.Font = Enum.Font.GothamBold
-    HeaderLogo.BorderSizePixel = 0
-    HeaderLogo.Parent = HeaderFrame
-    
-    local HLogoCorner = Instance.new("UICorner")
-    HLogoCorner.CornerRadius = UDim.new(0, 10)
-    HLogoCorner.Parent = HeaderLogo
-    
-    local HeaderTitle = Instance.new("TextLabel")
-    HeaderTitle.Size = UDim2.new(0, 200, 0, 30)
-    HeaderTitle.Position = UDim2.new(0, 65, 0, 8)
-    HeaderTitle.BackgroundTransparency = 1
-    HeaderTitle.Text = "XURENY X HUB"
-    HeaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    HeaderTitle.TextScaled = true
-    HeaderTitle.Font = Enum.Font.GothamBold
-    HeaderTitle.Parent = HeaderFrame
-    
-    local HeaderSub = Instance.new("TextLabel")
-    HeaderSub.Size = UDim2.new(0, 200, 0, 20)
-    HeaderSub.Position = UDim2.new(0, 65, 0, 40)
-    HeaderSub.BackgroundTransparency = 1
-    HeaderSub.Text = "Vehicle Control System"
-    HeaderSub.TextColor3 = Color3.fromRGB(200, 150, 255)
-    HeaderSub.TextScaled = true
-    HeaderSub.Font = Enum.Font.Gotham
-    HeaderSub.Parent = HeaderFrame
-    
-    -- Close Button
+    local Header = Instance.new("Frame")
+    Header.Size = UDim2.new(1, 0, 0, 58)
+    Header.BackgroundColor3 = Color3.fromRGB(75, 0, 170)
+    Header.BorderSizePixel = 0
+    Header.ZIndex = 11
+    Header.Parent = Menu
+
+    local HCorner = Instance.new("UICorner")
+    HCorner.CornerRadius = UDim.new(0, 18)
+    HCorner.Parent = Header
+
+    -- fix bottom of header (square corners)
+    local HFix = Instance.new("Frame")
+    HFix.Size = UDim2.new(1, 0, 0.5, 0)
+    HFix.Position = UDim2.new(0, 0, 0.5, 0)
+    HFix.BackgroundColor3 = Color3.fromRGB(75, 0, 170)
+    HFix.BorderSizePixel = 0
+    HFix.ZIndex = 11
+    HFix.Parent = Header
+
+    local HIcon = Instance.new("TextLabel")
+    HIcon.Size = UDim2.new(0, 36, 0, 36)
+    HIcon.Position = UDim2.new(0, 10, 0.5, -18)
+    HIcon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    HIcon.Text = "X"
+    HIcon.TextColor3 = Color3.fromRGB(75, 0, 170)
+    HIcon.TextScaled = true
+    HIcon.Font = Enum.Font.GothamBold
+    HIcon.BorderSizePixel = 0
+    HIcon.ZIndex = 12
+    HIcon.Parent = Header
+
+    local HIconCorner = Instance.new("UICorner")
+    HIconCorner.CornerRadius = UDim.new(0, 8)
+    HIconCorner.Parent = HIcon
+
+    local HTitle = Instance.new("TextLabel")
+    HTitle.Size = UDim2.new(0, 170, 0, 22)
+    HTitle.Position = UDim2.new(0, 54, 0, 8)
+    HTitle.BackgroundTransparency = 1
+    HTitle.Text = "XURENY X HUB"
+    HTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    HTitle.TextScaled = true
+    HTitle.Font = Enum.Font.GothamBold
+    HTitle.TextXAlignment = Enum.TextXAlignment.Left
+    HTitle.ZIndex = 12
+    HTitle.Parent = Header
+
+    local HSub = Instance.new("TextLabel")
+    HSub.Size = UDim2.new(0, 170, 0, 16)
+    HSub.Position = UDim2.new(0, 54, 0, 32)
+    HSub.BackgroundTransparency = 1
+    HSub.Text = "Vehicle Control"
+    HSub.TextColor3 = Color3.fromRGB(200, 140, 255)
+    HSub.TextScaled = true
+    HSub.Font = Enum.Font.Gotham
+    HSub.TextXAlignment = Enum.TextXAlignment.Left
+    HSub.ZIndex = 12
+    HSub.Parent = Header
+
     local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 35, 0, 35)
-    CloseBtn.Position = UDim2.new(1, -45, 0.5, -17)
-    CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+    CloseBtn.Position = UDim2.new(1, -40, 0.5, -15)
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 50)
     CloseBtn.Text = "✕"
     CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     CloseBtn.TextScaled = true
     CloseBtn.Font = Enum.Font.GothamBold
     CloseBtn.BorderSizePixel = 0
-    CloseBtn.Parent = HeaderFrame
-    
-    local CloseBtnCorner = Instance.new("UICorner")
-    CloseBtnCorner.CornerRadius = UDim.new(0, 8)
-    CloseBtnCorner.Parent = CloseBtn
-    
-    -- Speed Display
-    local SpeedFrame = Instance.new("Frame")
-    SpeedFrame.Size = UDim2.new(1, -30, 0, 70)
-    SpeedFrame.Position = UDim2.new(0, 15, 0, 80)
-    SpeedFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 35)
-    SpeedFrame.BorderSizePixel = 0
-    SpeedFrame.Parent = MenuFrame
-    
-    local SpeedCorner = Instance.new("UICorner")
-    SpeedCorner.CornerRadius = UDim.new(0, 15)
-    SpeedCorner.Parent = SpeedFrame
-    
-    local SpeedStroke = Instance.new("UIStroke")
-    SpeedStroke.Color = Color3.fromRGB(80, 0, 180)
-    SpeedStroke.Thickness = 1
-    SpeedStroke.Parent = SpeedFrame
-    
-    local SpeedIcon = Instance.new("TextLabel")
-    SpeedIcon.Size = UDim2.new(0, 40, 1, 0)
-    SpeedIcon.Position = UDim2.new(0, 10, 0, 0)
-    SpeedIcon.BackgroundTransparency = 1
-    SpeedIcon.Text = "⚡"
-    SpeedIcon.TextScaled = true
-    SpeedIcon.Parent = SpeedFrame
-    
-    local SpeedTitle = Instance.new("TextLabel")
-    SpeedTitle.Size = UDim2.new(0, 120, 0, 25)
-    SpeedTitle.Position = UDim2.new(0, 55, 0, 8)
-    SpeedTitle.BackgroundTransparency = 1
-    SpeedTitle.Text = "KECEPATAN"
-    SpeedTitle.TextColor3 = Color3.fromRGB(180, 100, 255)
-    SpeedTitle.TextScaled = true
-    SpeedTitle.Font = Enum.Font.GothamBold
-    SpeedTitle.Parent = SpeedFrame
-    
-    local SpeedValue = Instance.new("TextLabel")
-    SpeedValue.Size = UDim2.new(0, 150, 0, 30)
-    SpeedValue.Position = UDim2.new(0, 55, 0, 32)
-    SpeedValue.BackgroundTransparency = 1
-    SpeedValue.Text = "0 km/h"
-    SpeedValue.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SpeedValue.TextScaled = true
-    SpeedValue.Font = Enum.Font.GothamBold
-    SpeedValue.Parent = SpeedFrame
-    
-    local StatusDot = Instance.new("Frame")
-    StatusDot.Size = UDim2.new(0, 12, 0, 12)
-    StatusDot.Position = UDim2.new(1, -25, 0.5, -6)
-    StatusDot.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
-    StatusDot.BorderSizePixel = 0
-    StatusDot.Parent = SpeedFrame
-    
-    local StatusDotCorner = Instance.new("UICorner")
-    StatusDotCorner.CornerRadius = UDim.new(1, 0)
-    StatusDotCorner.Parent = StatusDot
-    
-    -- Scrolling Frame for Controls
-    local ScrollFrame = Instance.new("ScrollingFrame")
-    ScrollFrame.Size = UDim2.new(1, -20, 1, -165)
-    ScrollFrame.Position = UDim2.new(0, 10, 0, 160)
-    ScrollFrame.BackgroundTransparency = 1
-    ScrollFrame.BorderSizePixel = 0
-    ScrollFrame.ScrollBarThickness = 4
-    ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(120, 0, 255)
-    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    ScrollFrame.Parent = MenuFrame
-    
-    local ListLayout = Instance.new("UIListLayout")
-    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    ListLayout.Padding = UDim.new(0, 8)
-    ListLayout.Parent = ScrollFrame
-    
-    ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
+    CloseBtn.ZIndex = 13
+    CloseBtn.Parent = Header
+
+    local CBCorner = Instance.new("UICorner")
+    CBCorner.CornerRadius = UDim.new(0, 8)
+    CBCorner.Parent = CloseBtn
+
+    -- Speed bar
+    local SpeedBar = Instance.new("Frame")
+    SpeedBar.Size = UDim2.new(1, -16, 0, 50)
+    SpeedBar.Position = UDim2.new(0, 8, 0, 65)
+    SpeedBar.BackgroundColor3 = Color3.fromRGB(15, 15, 35)
+    SpeedBar.BorderSizePixel = 0
+    SpeedBar.ZIndex = 11
+    SpeedBar.Parent = Menu
+
+    local SBCorner = Instance.new("UICorner")
+    SBCorner.CornerRadius = UDim.new(0, 12)
+    SBCorner.Parent = SpeedBar
+
+    local SBStroke = Instance.new("UIStroke")
+    SBStroke.Color = Color3.fromRGB(70, 0, 160)
+    SBStroke.Thickness = 1
+    SBStroke.Parent = SpeedBar
+
+    local SpeedIcon2 = Instance.new("TextLabel")
+    SpeedIcon2.Size = UDim2.new(0, 35, 1, 0)
+    SpeedIcon2.Position = UDim2.new(0, 8, 0, 0)
+    SpeedIcon2.BackgroundTransparency = 1
+    SpeedIcon2.Text = "⚡"
+    SpeedIcon2.TextScaled = true
+    SpeedIcon2.ZIndex = 12
+    SpeedIcon2.Parent = SpeedBar
+
+    local SpeedTitle2 = Instance.new("TextLabel")
+    SpeedTitle2.Size = UDim2.new(0, 100, 0, 20)
+    SpeedTitle2.Position = UDim2.new(0, 46, 0, 5)
+    SpeedTitle2.BackgroundTransparency = 1
+    SpeedTitle2.Text = "KECEPATAN"
+    SpeedTitle2.TextColor3 = Color3.fromRGB(170, 90, 255)
+    SpeedTitle2.TextScaled = true
+    SpeedTitle2.Font = Enum.Font.GothamBold
+    SpeedTitle2.TextXAlignment = Enum.TextXAlignment.Left
+    SpeedTitle2.ZIndex = 12
+    SpeedTitle2.Parent = SpeedBar
+
+    local SpeedVal = Instance.new("TextLabel")
+    SpeedVal.Size = UDim2.new(0, 130, 0, 22)
+    SpeedVal.Position = UDim2.new(0, 46, 0, 25)
+    SpeedVal.BackgroundTransparency = 1
+    SpeedVal.Text = "0 km/h"
+    SpeedVal.TextColor3 = Color3.fromRGB(0, 255, 100)
+    SpeedVal.TextScaled = true
+    SpeedVal.Font = Enum.Font.GothamBold
+    SpeedVal.TextXAlignment = Enum.TextXAlignment.Left
+    SpeedVal.ZIndex = 12
+    SpeedVal.Parent = SpeedBar
+
+    -- Scroll area
+    local Scroll = Instance.new("ScrollingFrame")
+    Scroll.Size = UDim2.new(1, -10, 1, -125)
+    Scroll.Position = UDim2.new(0, 5, 0, 122)
+    Scroll.BackgroundTransparency = 1
+    Scroll.BorderSizePixel = 0
+    Scroll.ScrollBarThickness = 3
+    Scroll.ScrollBarImageColor3 = Color3.fromRGB(120, 0, 255)
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Scroll.ZIndex = 11
+    Scroll.Parent = Menu
+
+    local ULL = Instance.new("UIListLayout")
+    ULL.SortOrder = Enum.SortOrder.LayoutOrder
+    ULL.Padding = UDim.new(0, 6)
+    ULL.Parent = Scroll
+
+    ULL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Scroll.CanvasSize = UDim2.new(0, 0, 0, ULL.AbsoluteContentSize.Y + 8)
     end)
-    
-    -- ========================================
-    -- BUTTON CREATION FUNCTION
-    -- ========================================
-    
-    local function createButton(text, icon, color, order)
-        local BtnFrame = Instance.new("Frame")
-        BtnFrame.Size = UDim2.new(1, -10, 0, 55)
-        BtnFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-        BtnFrame.BorderSizePixel = 0
-        BtnFrame.LayoutOrder = order
-        BtnFrame.Parent = ScrollFrame
-        
-        local BtnCorner = Instance.new("UICorner")
-        BtnCorner.CornerRadius = UDim.new(0, 12)
-        BtnCorner.Parent = BtnFrame
-        
-        local BtnStroke = Instance.new("UIStroke")
-        BtnStroke.Color = color
-        BtnStroke.Thickness = 1.5
-        BtnStroke.Parent = BtnFrame
-        
-        local IconLabel = Instance.new("TextLabel")
-        IconLabel.Size = UDim2.new(0, 40, 1, 0)
-        IconLabel.Position = UDim2.new(0, 8, 0, 0)
-        IconLabel.BackgroundColor3 = color
-        IconLabel.BackgroundTransparency = 0.7
-        IconLabel.Text = icon
-        IconLabel.TextScaled = true
-        IconLabel.BorderSizePixel = 0
-        IconLabel.Parent = BtnFrame
-        
-        local IconCorner = Instance.new("UICorner")
-        IconCorner.CornerRadius = UDim.new(0, 10)
-        IconCorner.Parent = IconLabel
-        
-        local BtnLabel = Instance.new("TextLabel")
-        BtnLabel.Size = UDim2.new(1, -70, 1, 0)
-        BtnLabel.Position = UDim2.new(0, 55, 0, 0)
-        BtnLabel.BackgroundTransparency = 1
-        BtnLabel.Text = text
-        BtnLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        BtnLabel.TextScaled = true
-        BtnLabel.Font = Enum.Font.GothamBold
-        BtnLabel.TextXAlignment = Enum.TextXAlignment.Left
-        BtnLabel.Parent = BtnFrame
-        
-        local ClickBtn = Instance.new("TextButton")
-        ClickBtn.Size = UDim2.new(1, 0, 1, 0)
-        ClickBtn.Position = UDim2.new(0, 0, 0, 0)
-        ClickBtn.BackgroundTransparency = 1
-        ClickBtn.Text = ""
-        ClickBtn.Parent = BtnFrame
-        
-        -- Toggle indicator
-        local ToggleFrame = Instance.new("Frame")
-        ToggleFrame.Size = UDim2.new(0, 45, 0, 25)
-        ToggleFrame.Position = UDim2.new(1, -55, 0.5, -12)
-        ToggleFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
-        ToggleFrame.BorderSizePixel = 0
-        ToggleFrame.Parent = BtnFrame
-        
-        local ToggleCorner = Instance.new("UICorner")
-        ToggleCorner.CornerRadius = UDim.new(1, 0)
-        ToggleCorner.Parent = ToggleFrame
-        
-        local ToggleDot = Instance.new("Frame")
-        ToggleDot.Size = UDim2.new(0, 19, 0, 19)
-        ToggleDot.Position = UDim2.new(0, 3, 0.5, -9)
-        ToggleDot.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-        ToggleDot.BorderSizePixel = 0
-        ToggleDot.Parent = ToggleFrame
-        
-        local ToggleDotCorner = Instance.new("UICorner")
-        ToggleDotCorner.CornerRadius = UDim.new(1, 0)
-        ToggleDotCorner.Parent = ToggleDot
-        
-        return ClickBtn, BtnFrame, ToggleFrame, ToggleDot, BtnStroke, BtnLabel
+
+    local UPad = Instance.new("UIPadding")
+    UPad.PaddingTop = UDim.new(0, 4)
+    UPad.PaddingLeft = UDim.new(0, 3)
+    UPad.PaddingRight = UDim.new(0, 3)
+    UPad.Parent = Scroll
+
+    -- ===== HELPER: CREATE BUTTON =====
+    local function makeBtn(icon, label, bgColor, order)
+        local F = Instance.new("TextButton")
+        F.Size = UDim2.new(1, -6, 0, 46)
+        F.BackgroundColor3 = bgColor
+        F.BackgroundTransparency = 0.55
+        F.Text = ""
+        F.BorderSizePixel = 0
+        F.LayoutOrder = order
+        F.ZIndex = 12
+        F.Parent = Scroll
+
+        local FC = Instance.new("UICorner")
+        FC.CornerRadius = UDim.new(0, 11)
+        FC.Parent = F
+
+        local FS = Instance.new("UIStroke")
+        FS.Color = bgColor
+        FS.Thickness = 1.5
+        FS.Parent = F
+
+        local IL = Instance.new("TextLabel")
+        IL.Size = UDim2.new(0, 32, 0, 32)
+        IL.Position = UDim2.new(0, 8, 0.5, -16)
+        IL.BackgroundColor3 = bgColor
+        IL.BackgroundTransparency = 0.4
+        IL.Text = icon
+        IL.TextScaled = true
+        IL.BorderSizePixel = 0
+        IL.ZIndex = 13
+        IL.Parent = F
+
+        local ILC = Instance.new("UICorner")
+        ILC.CornerRadius = UDim.new(0, 8)
+        ILC.Parent = IL
+
+        local TL = Instance.new("TextLabel")
+        TL.Size = UDim2.new(1, -55, 1, 0)
+        TL.Position = UDim2.new(0, 48, 0, 0)
+        TL.BackgroundTransparency = 1
+        TL.Text = label
+        TL.TextColor3 = Color3.fromRGB(255, 255, 255)
+        TL.TextScaled = true
+        TL.Font = Enum.Font.GothamBold
+        TL.TextXAlignment = Enum.TextXAlignment.Left
+        TL.ZIndex = 13
+        TL.Parent = F
+
+        return F, FS
     end
-    
-    local function createActionButton(text, icon, color, order)
-        local BtnFrame = Instance.new("Frame")
-        BtnFrame.Size = UDim2.new(1, -10, 0, 60)
-        BtnFrame.BackgroundColor3 = color
-        BtnFrame.BackgroundTransparency = 0.6
-        BtnFrame.BorderSizePixel = 0
-        BtnFrame.LayoutOrder = order
-        BtnFrame.Parent = ScrollFrame
-        
-        local BtnCorner = Instance.new("UICorner")
-        BtnCorner.CornerRadius = UDim.new(0, 12)
-        BtnCorner.Parent = BtnFrame
-        
-        local BtnStroke = Instance.new("UIStroke")
-        BtnStroke.Color = color
-        BtnStroke.Thickness = 2
-        BtnStroke.Parent = BtnFrame
-        
-        local BtnLabel = Instance.new("TextLabel")
-        BtnLabel.Size = UDim2.new(1, 0, 1, 0)
-        BtnLabel.BackgroundTransparency = 1
-        BtnLabel.Text = icon .. "  " .. text
-        BtnLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        BtnLabel.TextScaled = true
-        BtnLabel.Font = Enum.Font.GothamBold
-        BtnLabel.Parent = BtnLabel
-        
-        local ClickBtn = Instance.new("TextButton")
-        ClickBtn.Size = UDim2.new(1, 0, 1, 0)
-        ClickBtn.BackgroundTransparency = 1
-        ClickBtn.Text = icon .. "  " .. text
-        ClickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        ClickBtn.TextScaled = true
-        ClickBtn.Font = Enum.Font.GothamBold
-        ClickBtn.BorderSizePixel = 0
-        ClickBtn.Parent = BtnFrame
-        
-        return ClickBtn, BtnFrame
+
+    -- Toggle button type
+    local function makeToggleBtn(icon, label, bgColor, order)
+        local F, FS = makeBtn(icon, label, bgColor, order)
+
+        local TF = Instance.new("Frame")
+        TF.Size = UDim2.new(0, 40, 0, 22)
+        TF.Position = UDim2.new(1, -48, 0.5, -11)
+        TF.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
+        TF.BorderSizePixel = 0
+        TF.ZIndex = 13
+        TF.Parent = F
+
+        local TFC = Instance.new("UICorner")
+        TFC.CornerRadius = UDim.new(1, 0)
+        TFC.Parent = TF
+
+        local TD = Instance.new("Frame")
+        TD.Size = UDim2.new(0, 16, 0, 16)
+        TD.Position = UDim2.new(0, 3, 0.5, -8)
+        TD.BackgroundColor3 = Color3.fromRGB(180, 180, 200)
+        TD.BorderSizePixel = 0
+        TD.ZIndex = 14
+        TD.Parent = TF
+
+        local TDC = Instance.new("UICorner")
+        TDC.CornerRadius = UDim.new(1, 0)
+        TDC.Parent = TD
+
+        return F, FS, TF, TD
     end
-    
-    local function createSectionLabel(text, order)
-        local Label = Instance.new("TextLabel")
-        Label.Size = UDim2.new(1, -10, 0, 25)
-        Label.BackgroundTransparency = 1
-        Label.Text = "── " .. text .. " ──"
-        Label.TextColor3 = Color3.fromRGB(150, 80, 255)
-        Label.TextScaled = true
-        Label.Font = Enum.Font.GothamBold
-        Label.LayoutOrder = order
-        Label.Parent = ScrollFrame
+
+    local function setToggle(TF, TD, state, onCol)
+        if state then
+            TweenService:Create(TF, TweenInfo.new(0.25), {BackgroundColor3 = onCol}):Play()
+            TweenService:Create(TD, TweenInfo.new(0.25), {Position = UDim2.new(1, -19, 0.5, -8)}):Play()
+        else
+            TweenService:Create(TF, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(50, 50, 80)}):Play()
+            TweenService:Create(TD, TweenInfo.new(0.25), {Position = UDim2.new(0, 3, 0.5, -8)}):Play()
+        end
     end
-    
-    -- ========================================
-    -- CREATE ALL BUTTONS
-    -- ========================================
-    
-    -- Section: Basic Controls
-    createSectionLabel("KONTROL DASAR", 1)
-    
-    -- Gas Button
-    local GasBtn, GasFrame = createActionButton("GAS", "🟢", Color3.fromRGB(0, 180, 80), 2)
-    
-    -- Brake Button
-    local BrakeBtn, BrakeFrame = createActionButton("BERHENTI", "🔴", Color3.fromRGB(200, 0, 0), 3)
-    
-    -- Reverse Button
-    local ReverseBtn, ReverseFrame = createActionButton("MUNDUR", "🔵", Color3.fromRGB(0, 100, 200), 4)
-    
-    -- Section: Speed Control
-    createSectionLabel("KONTROL KECEPATAN", 5)
-    
-    -- Auto Turbo 3
-    local Turbo3Btn, Turbo3Frame, Turbo3Toggle, Turbo3Dot, Turbo3Stroke = createButton(
-        "AUTO TURBO 3",
-        "⚡",
-        Color3.fromRGB(255, 150, 0),
-        6
-    )
-    
-    -- Auto Max Speed
-    local MaxSpeedBtn, MaxSpeedFrame, MaxSpeedToggle, MaxSpeedDot, MaxSpeedStroke = createButton(
-        "AUTO MAX SPEED",
-        "🚀",
-        Color3.fromRGB(255, 50, 50),
-        7
-    )
-    
-    -- Normal Speed
-    local NormalSpeedBtn, NormalSpeedFrame = createActionButton("KECEPATAN NORMAL", "🚗", Color3.fromRGB(100, 100, 200), 8)
-    
-    -- Section: Extra Controls
-    createSectionLabel("KONTROL TAMBAHAN", 9)
-    
-    -- Flip Car
-    local FlipBtn, FlipFrame = createActionButton("BALIKKAN MOBIL", "🔄", Color3.fromRGB(150, 50, 200), 10)
-    
-    -- Teleport to road
-    local TeleportBtn, TeleportFrame = createActionButton("RESET POSISI", "📍", Color3.fromRGB(50, 150, 200), 11)
-    
-    -- God Mode Toggle
-    local GodBtn, GodFrame, GodToggle, GodDot, GodStroke = createButton(
-        "GOD MODE",
-        "🛡️",
-        Color3.fromRGB(255, 215, 0),
-        12
-    )
-    
-    -- Speed Boost
-    local BoostBtn, BoostFrame = createActionButton("NITRO BOOST", "💨", Color3.fromRGB(0, 200, 200), 13)
-    
-    -- Section Info
-    createSectionLabel("INFO", 14)
-    
-    local InfoLabel = Instance.new("TextLabel")
-    InfoLabel.Size = UDim2.new(1, -10, 0, 45)
-    InfoLabel.BackgroundColor3 = Color3.fromRGB(15, 15, 35)
-    InfoLabel.BorderSizePixel = 0
-    InfoLabel.Text = "💡 Naiki kendaraan untuk\nmengaktifkan kontrol"
-    InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
-    InfoLabel.TextScaled = true
-    InfoLabel.Font = Enum.Font.Gotham
-    InfoLabel.LayoutOrder = 15
-    InfoLabel.Parent = ScrollFrame
-    
-    local InfoCorner = Instance.new("UICorner")
-    InfoCorner.CornerRadius = UDim.new(0, 10)
-    InfoCorner.Parent = InfoLabel
-    
-    -- ========================================
-    -- TOGGLE BUTTON (Floating)
-    -- ========================================
-    
-    local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Size = UDim2.new(0, 60, 0, 60)
-    ToggleBtn.Position = UDim2.new(0, 20, 0.5, -30)
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 180)
-    ToggleBtn.Text = "🚗"
-    ToggleBtn.TextScaled = true
-    ToggleBtn.BorderSizePixel = 0
-    ToggleBtn.Visible = false
-    ToggleBtn.ZIndex = 10
-    ToggleBtn.Parent = MainGui
-    
-    local ToggleBtnCorner = Instance.new("UICorner")
-    ToggleBtnCorner.CornerRadius = UDim.new(0, 15)
-    ToggleBtnCorner.Parent = ToggleBtn
-    
-    local ToggleBtnStroke = Instance.new("UIStroke")
-    ToggleBtnStroke.Color = Color3.fromRGB(150, 50, 255)
-    ToggleBtnStroke.Thickness = 2
-    ToggleBtnStroke.Parent = ToggleBtn
-    
-    local XLabel = Instance.new("TextLabel")
-    XLabel.Size = UDim2.new(0, 20, 0, 20)
-    XLabel.Position = UDim2.new(1, -5, 0, -5)
-    XLabel.BackgroundColor3 = Color3.fromRGB(255, 0, 100)
-    XLabel.Text = "X"
-    XLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    XLabel.TextScaled = true
-    XLabel.Font = Enum.Font.GothamBold
-    XLabel.BorderSizePixel = 0
-    XLabel.ZIndex = 11
-    XLabel.Parent = ToggleBtn
-    
-    local XLabelCorner = Instance.new("UICorner")
-    XLabelCorner.CornerRadius = UDim.new(0, 5)
-    XLabelCorner.Parent = XLabel
-    
-    -- ========================================
-    -- VEHICLE FUNCTIONS
-    -- ========================================
-    
-    local function getVehicle()
+
+    local function makeSec(txt, order)
+        local L = Instance.new("TextLabel")
+        L.Size = UDim2.new(1, -6, 0, 18)
+        L.BackgroundTransparency = 1
+        L.Text = "── " .. txt .. " ──"
+        L.TextColor3 = Color3.fromRGB(140, 70, 255)
+        L.TextScaled = true
+        L.Font = Enum.Font.GothamBold
+        L.LayoutOrder = order
+        L.ZIndex = 12
+        L.Parent = Scroll
+    end
+
+    -- ===== BUILD BUTTONS =====
+    makeSec("KONTROL DASAR", 1)
+
+    local GasBtn = makeBtn("🟢", "GAS (Maju)", Color3.fromRGB(0, 180, 70), 2)
+    local BrakeBtn = makeBtn("🔴", "BERHENTI (Rem)", Color3.fromRGB(200, 30, 30), 3)
+    local RevBtn = makeBtn("🔵", "MUNDUR", Color3.fromRGB(30, 100, 220), 4)
+
+    makeSec("KECEPATAN OTOMATIS", 5)
+
+    local Turbo3Btn, _, T3TF, T3TD = makeToggleBtn("⚡", "AUTO TURBO 3 (150 km/h)", Color3.fromRGB(255, 140, 0), 6)
+    local MaxBtn, _, MxTF, MxTD = makeToggleBtn("🚀", "AUTO MAX SPEED (350 km/h)", Color3.fromRGB(255, 40, 40), 7)
+    local NormBtn = makeBtn("🚗", "KECEPATAN NORMAL", Color3.fromRGB(100, 100, 210), 8)
+
+    makeSec("EKSTRA", 9)
+
+    local NitroBtn = makeBtn("💨", "NITRO BOOST (3 dtk)", Color3.fromRGB(0, 200, 200), 10)
+    local FlipBtn = makeBtn("🔄", "BALIKKAN MOBIL", Color3.fromRGB(160, 50, 220), 11)
+    local ResetBtn = makeBtn("📍", "RESET POSISI", Color3.fromRGB(50, 160, 200), 12)
+
+    local GodBtn, _, GTF, GTD = makeToggleBtn("🛡️", "GOD MODE", Color3.fromRGB(255, 210, 0), 13)
+
+    -- ===== VEHICLE HELPER =====
+    local function getVehicleSeat()
         local char = Player.Character
         if not char then return nil end
-        
-        local humanoid = char:FindFirstChild("Humanoid")
-        if humanoid and humanoid.SeatPart then
-            return humanoid.SeatPart.Parent
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.SeatPart and hum.SeatPart:IsA("VehicleSeat") then
+            return hum.SeatPart
         end
         return nil
     end
-    
-    local function setVehicleSpeed(vehicle, speed)
-        if not vehicle then return end
-        
-        for _, part in pairs(vehicle:GetDescendants()) do
-            if part:IsA("VehicleSeat") then
-                part.MaxSpeed = speed
-                break
+
+    local function getVehicle()
+        local seat = getVehicleSeat()
+        if seat then return seat.Parent end
+        return nil
+    end
+
+    local function setMaxSpeed(v, spd)
+        if not v then return end
+        for _, p in ipairs(v:GetDescendants()) do
+            if p:IsA("VehicleSeat") then
+                p.MaxSpeed = spd
             end
         end
     end
-    
-    local function applyTorque(vehicle, torqueValue)
-        if not vehicle then return end
-        
-        for _, part in pairs(vehicle:GetDescendants()) do
-            if part:IsA("VehicleSeat") then
-                part.Throttle = torqueValue
-                break
+
+    local function setThrottle(v, val)
+        if not v then return end
+        for _, p in ipairs(v:GetDescendants()) do
+            if p:IsA("VehicleSeat") then
+                p.Throttle = val
             end
         end
     end
-    
-    local function toggleFeature(toggle, dot, state, onColor)
-        if state then
-            TweenService:Create(toggle, TweenInfo.new(0.3), {
-                BackgroundColor3 = onColor
-            }):Play()
-            TweenService:Create(dot, TweenInfo.new(0.3), {
-                Position = UDim2.new(1, -22, 0.5, -9)
-            }):Play()
-        else
-            TweenService:Create(toggle, TweenInfo.new(0.3), {
-                BackgroundColor3 = Color3.fromRGB(50, 50, 80)
-            }):Play()
-            TweenService:Create(dot, TweenInfo.new(0.3), {
-                Position = UDim2.new(0, 3, 0.5, -9)
-            }):Play()
-        end
-    end
-    
-    local godMode = false
-    
-    -- ========================================
-    -- BUTTON FUNCTIONS
-    -- ========================================
-    
-    -- Gas
+
+    -- ===== BUTTON LOGIC =====
+
+    -- GAS (hold)
     GasBtn.MouseButton1Down:Connect(function()
-        local vehicle = getVehicle()
-        if vehicle then
-            applyTorque(vehicle, 1)
-            TweenService:Create(GasFrame, TweenInfo.new(0.1), {
-                BackgroundTransparency = 0.2
-            }):Play()
-            showNotif("⛽ Gas Ditekan!", Color3.fromRGB(0, 200, 100))
-        else
-            showNotif("❌ Tidak ada kendaraan!", Color3.fromRGB(255, 0, 0))
-        end
+        local v = getVehicle()
+        if v then setThrottle(v, 1) showNotif("⛽ Gas!", Color3.fromRGB(0,200,80))
+        else showNotif("❌ Tidak di kendaraan!", Color3.fromRGB(255,0,0)) end
     end)
-    
     GasBtn.MouseButton1Up:Connect(function()
-        TweenService:Create(GasFrame, TweenInfo.new(0.1), {
-            BackgroundTransparency = 0.6
-        }):Play()
+        setThrottle(getVehicle(), 0)
     end)
-    
-    -- Brake
+
+    -- BRAKE (hold)
     BrakeBtn.MouseButton1Down:Connect(function()
-        local vehicle = getVehicle()
-        if vehicle then
-            applyTorque(vehicle, 0)
-            for _, part in pairs(vehicle:GetDescendants()) do
-                if part:IsA("VehicleSeat") then
-                    part.Brake = 1
-                end
-            end
-            TweenService:Create(BrakeFrame, TweenInfo.new(0.1), {
-                BackgroundTransparency = 0.2
-            }):Play()
-            showNotif("🛑 Rem Ditekan!", Color3.fromRGB(255, 50, 50))
-        else
-            showNotif("❌ Tidak ada kendaraan!", Color3.fromRGB(255, 0, 0))
-        end
+        local v = getVehicle()
+        if v then setThrottle(v, 0) showNotif("🛑 Rem!", Color3.fromRGB(255,50,50))
+        else showNotif("❌ Tidak di kendaraan!", Color3.fromRGB(255,0,0)) end
     end)
-    
-    BrakeBtn.MouseButton1Up:Connect(function()
-        TweenService:Create(BrakeFrame, TweenInfo.new(0.1), {
-            BackgroundTransparency = 0.6
-        }):Play()
+
+    -- REVERSE (hold)
+    RevBtn.MouseButton1Down:Connect(function()
+        local v = getVehicle()
+        if v then setThrottle(v, -1) showNotif("🔙 Mundur!", Color3.fromRGB(50,100,255))
+        else showNotif("❌ Tidak di kendaraan!", Color3.fromRGB(255,0,0)) end
     end)
-    
-    -- Reverse
-    ReverseBtn.MouseButton1Down:Connect(function()
-        local vehicle = getVehicle()
-        if vehicle then
-            applyTorque(vehicle, -1)
-            TweenService:Create(ReverseFrame, TweenInfo.new(0.1), {
-                BackgroundTransparency = 0.2
-            }):Play()
-            showNotif("🔙 Mundur Aktif!", Color3.fromRGB(50, 100, 255))
-        else
-            showNotif("❌ Tidak ada kendaraan!", Color3.fromRGB(255, 0, 0))
-        end
+    RevBtn.MouseButton1Up:Connect(function()
+        setThrottle(getVehicle(), 0)
     end)
-    
-    ReverseBtn.MouseButton1Up:Connect(function()
-        applyTorque(getVehicle(), 0)
-        TweenService:Create(ReverseFrame, TweenInfo.new(0.1), {
-            BackgroundTransparency = 0.6
-        }):Play()
-    end)
-    
-    -- Auto Turbo 3
+
+    -- TURBO 3
     Turbo3Btn.MouseButton1Click:Connect(function()
+        local v = getVehicle()
+        if not v then showNotif("❌ Tidak di kendaraan!", Color3.fromRGB(255,0,0)) return end
         autoTurbo3 = not autoTurbo3
         if autoTurbo3 then
             autoMaxSpeed = false
-            toggleFeature(MaxSpeedToggle, MaxSpeedDot, false, Color3.fromRGB(255, 50, 50))
-        end
-        toggleFeature(Turbo3Toggle, Turbo3Dot, autoTurbo3, Color3.fromRGB(255, 150, 0))
-        
-        if autoTurbo3 then
-            local vehicle = getVehicle()
-            if vehicle then
-                setVehicleSpeed(vehicle, TURBO3_SPEED)
-                showNotif("⚡ Auto Turbo 3 ON! (" .. TURBO3_SPEED .. " km/h)", Color3.fromRGB(255, 150, 0))
-            else
-                showNotif("❌ Tidak ada kendaraan!", Color3.fromRGB(255, 0, 0))
-                autoTurbo3 = false
-                toggleFeature(Turbo3Toggle, Turbo3Dot, false, Color3.fromRGB(255, 150, 0))
-            end
+            setToggle(MxTF, MxTD, false, Color3.fromRGB(255,40,40))
+            setMaxSpeed(v, SPEED_TURBO3)
+            showNotif("⚡ Turbo 3 ON! 150 km/h", Color3.fromRGB(255,140,0))
         else
-            showNotif("⚡ Auto Turbo 3 OFF!", Color3.fromRGB(150, 150, 150))
+            showNotif("⚡ Turbo 3 OFF", Color3.fromRGB(150,150,150))
         end
+        setToggle(T3TF, T3TD, autoTurbo3, Color3.fromRGB(255,140,0))
     end)
-    
-    -- Auto Max Speed
-    MaxSpeedBtn.MouseButton1Click:Connect(function()
+
+    -- MAX SPEED
+    MaxBtn.MouseButton1Click:Connect(function()
+        local v = getVehicle()
+        if not v then showNotif("❌ Tidak di kendaraan!", Color3.fromRGB(255,0,0)) return end
         autoMaxSpeed = not autoMaxSpeed
         if autoMaxSpeed then
             autoTurbo3 = false
-            toggleFeature(Turbo3Toggle, Turbo3Dot, false, Color3.fromRGB(255, 150, 0))
-        end
-        toggleFeature(MaxSpeedToggle, MaxSpeedDot, autoMaxSpeed, Color3.fromRGB(255, 50, 50))
-        
-        if autoMaxSpeed then
-            local vehicle = getVehicle()
-            if vehicle then
-                setVehicleSpeed(vehicle, MAX_SPEED)
-                showNotif("🚀 Auto Max Speed ON! (" .. MAX_SPEED .. " km/h)", Color3.fromRGB(255, 50, 50))
-            else
-                showNotif("❌ Tidak ada kendaraan!", Color3.fromRGB(255, 0, 0))
-                autoMaxSpeed = false
-                toggleFeature(MaxSpeedToggle, MaxSpeedDot, false, Color3.fromRGB(255, 50, 50))
-            end
+            setToggle(T3TF, T3TD, false, Color3.fromRGB(255,140,0))
+            setMaxSpeed(v, SPEED_MAX)
+            showNotif("🚀 Max Speed ON! 350 km/h", Color3.fromRGB(255,40,40))
         else
-            showNotif("🚀 Auto Max Speed OFF!", Color3.fromRGB(150, 150, 150))
+            showNotif("🚀 Max Speed OFF", Color3.fromRGB(150,150,150))
         end
+        setToggle(MxTF, MxTD, autoMaxSpeed, Color3.fromRGB(255,40,40))
     end)
-    
-    -- Normal Speed
-    NormalSpeedBtn.MouseButton1Click:Connect(function()
+
+    -- NORMAL SPEED
+    NormBtn.MouseButton1Click:Connect(function()
+        local v = getVehicle()
+        if not v then showNotif("❌ Tidak di kendaraan!", Color3.fromRGB(255,0,0)) return end
         autoTurbo3 = false
         autoMaxSpeed = false
-        toggleFeature(Turbo3Toggle, Turbo3Dot, false, Color3.fromRGB(255, 150, 0))
-        toggleFeature(MaxSpeedToggle, MaxSpeedDot, false, Color3.fromRGB(255, 50, 50))
-        
-        local vehicle = getVehicle()
-        if vehicle then
-            setVehicleSpeed(vehicle, NORMAL_SPEED)
-            showNotif("🚗 Kecepatan Normal (" .. NORMAL_SPEED .. " km/h)", Color3.fromRGB(100, 100, 255))
-        else
-            showNotif("❌ Tidak ada kendaraan!", Color3.fromRGB(255, 0, 0))
-        end
+        setToggle(T3TF, T3TD, false, Color3.fromRGB(255,140,0))
+        setToggle(MxTF, MxTD, false, Color3.fromRGB(255,40,40))
+        setMaxSpeed(v, SPEED_NORMAL)
+        showNotif("🚗 Normal Speed 80 km/h", Color3.fromRGB(100,100,255))
     end)
-    
-    -- Flip Car
-    FlipBtn.MouseButton1Click:Connect(function()
-        local vehicle = getVehicle()
-        if vehicle then
-            for _, part in pairs(vehicle:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CFrame = CFrame.new(part.Position) * CFrame.Angles(0, 0, 0)
+
+    -- NITRO
+    NitroBtn.MouseButton1Click:Connect(function()
+        local v = getVehicle()
+        if not v then showNotif("❌ Tidak di kendaraan!", Color3.fromRGB(255,0,0)) return end
+        setMaxSpeed(v, SPEED_MAX)
+        setThrottle(v, 1)
+        showNotif("💨 NITRO! 3 Detik!", Color3.fromRGB(0,200,200))
+        task.delay(3, function()
+            local v2 = getVehicle()
+            if v2 then
+                setThrottle(v2, 0)
+                if not autoMaxSpeed and not autoTurbo3 then
+                    setMaxSpeed(v2, SPEED_NORMAL)
                 end
             end
-            showNotif("🔄 Kendaraan Dibalikkan!", Color3.fromRGB(150, 50, 200))
-        else
-            showNotif("❌ Tidak ada kendaraan!", Color3.fromRGB(255, 0, 0))
-        end
-    end)
-    
-    -- Reset Position
-    TeleportBtn.MouseButton1Click:Connect(function()
-        local vehicle = getVehicle()
-        if vehicle then
-            for _, part in pairs(vehicle:GetDescendants()) do
-                if part:IsA("VehicleSeat") then
-                    part.CFrame = CFrame.new(part.Position + Vector3.new(0, 5, 0))
-                    break
-                end
-            end
-            showNotif("📍 Posisi Direset!", Color3.fromRGB(50, 150, 200))
-        else
-            showNotif("❌ Tidak ada kendaraan!", Color3.fromRGB(255, 0, 0))
-        end
-    end)
-    
-    -- God Mode
-    GodBtn.MouseButton1Click:Connect(function()
-        godMode = not godMode
-        toggleFeature(GodToggle, GodDot, godMode, Color3.fromRGB(255, 215, 0))
-        
-        local char = Player.Character
-        if char then
-            local humanoid = char:FindFirstChild("Humanoid")
-            if humanoid then
-                if godMode then
-                    humanoid.MaxHealth = math.huge
-                    humanoid.Health = math.huge
-                    showNotif("🛡️ God Mode ON!", Color3.fromRGB(255, 215, 0))
-                else
-                    humanoid.MaxHealth = 100
-                    humanoid.Health = 100
-                    showNotif("🛡️ God Mode OFF!", Color3.fromRGB(150, 150, 150))
-                end
-            end
-        end
-    end)
-    
-    -- Nitro Boost
-    BoostBtn.MouseButton1Click:Connect(function()
-        local vehicle = getVehicle()
-        if vehicle then
-            local originalSpeed = NORMAL_SPEED
-            
-            for _, part in pairs(vehicle:GetDescendants()) do
-                if part:IsA("VehicleSeat") then
-                    originalSpeed = part.MaxSpeed
-                    part.MaxSpeed = MAX_SPEED
-                    part.Throttle = 1
-                    break
-                end
-            end
-            
-            showNotif("💨 NITRO BOOST! 3 Detik!", Color3.fromRGB(0, 200, 200))
-            
-            task.delay(3, function()
-                local veh = getVehicle()
-                if veh then
-                    for _, part in pairs(veh:GetDescendants()) do
-                        if part:IsA("VehicleSeat") then
-                            if not autoMaxSpeed and not autoTurbo3 then
-                                part.MaxSpeed = originalSpeed
-                            end
-                            break
-                        end
-                    end
-                end
-                showNotif("💨 Nitro Habis!", Color3.fromRGB(150, 150, 200))
-            end)
-        else
-            showNotif("❌ Tidak ada kendaraan!", Color3.fromRGB(255, 0, 0))
-        end
-    end)
-    
-    -- ========================================
-    -- TOGGLE MENU
-    -- ========================================
-    
-    local function toggleMenu()
-        isMenuVisible = not isMenuVisible
-        MenuFrame.Visible = isMenuVisible
-        
-        if isMenuVisible then
-            MenuFrame.Position = UDim2.new(-0.5, 0, 0.5, -275)
-            TweenService:Create(MenuFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {
-                Position = UDim2.new(0, 20, 0.5, -275)
-            }):Play()
-        end
-    end
-    
-    ToggleBtn.MouseButton1Click:Connect(toggleMenu)
-    CloseBtn.MouseButton1Click:Connect(function()
-        isMenuVisible = false
-        TweenService:Create(MenuFrame, TweenInfo.new(0.3), {
-            Position = UDim2.new(-0.5, 0, 0.5, -275)
-        }):Play()
-        task.delay(0.3, function()
-            MenuFrame.Visible = false
+            showNotif("💨 Nitro habis!", Color3.fromRGB(150,150,200))
         end)
     end)
-    
-    -- ========================================
-    -- VEHICLE DETECTION
-    -- ========================================
-    
-    local function onVehicleEnter(vehicle)
-        currentVehicle = vehicle
-        ToggleBtn.Visible = true
-        
-        -- Apply speed settings
-        if autoTurbo3 then
-            setVehicleSpeed(vehicle, TURBO3_SPEED)
-        elseif autoMaxSpeed then
-            setVehicleSpeed(vehicle, MAX_SPEED)
+
+    -- FLIP
+    FlipBtn.MouseButton1Click:Connect(function()
+        local v = getVehicle()
+        if not v then showNotif("❌ Tidak di kendaraan!", Color3.fromRGB(255,0,0)) return end
+        local root = v.PrimaryPart or v:FindFirstChildOfClass("BasePart")
+        if root then
+            root.CFrame = CFrame.new(root.Position + Vector3.new(0, 3, 0))
         end
-        
-        showNotif("🚗 Kendaraan Terdeteksi! Ketuk 🚗", Color3.fromRGB(120, 0, 255))
-        
-        -- Animate toggle button
-        TweenService:Create(ToggleBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-            Size = UDim2.new(0, 60, 0, 60)
+        showNotif("🔄 Mobil Dibalikkan!", Color3.fromRGB(160,50,220))
+    end)
+
+    -- RESET
+    ResetBtn.MouseButton1Click:Connect(function()
+        local v = getVehicle()
+        if not v then showNotif("❌ Tidak di kendaraan!", Color3.fromRGB(255,0,0)) return end
+        local seat = getVehicleSeat()
+        if seat then
+            seat.CFrame = seat.CFrame + Vector3.new(0, 5, 0)
+        end
+        showNotif("📍 Posisi Direset!", Color3.fromRGB(50,160,200))
+    end)
+
+    -- GOD MODE
+    GodBtn.MouseButton1Click:Connect(function()
+        godMode = not godMode
+        setToggle(GTF, GTD, godMode, Color3.fromRGB(255,210,0))
+        if godMode then
+            showNotif("🛡️ God Mode ON!", Color3.fromRGB(255,210,0))
+        else
+            showNotif("🛡️ God Mode OFF", Color3.fromRGB(150,150,150))
+            local char = Player.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then hum.MaxHealth = 100 hum.Health = 100 end
+            end
+        end
+    end)
+
+    -- ===== TOGGLE MENU =====
+    local function openMenu()
+        isMenuOpen = true
+        Menu.Visible = true
+        TweenService:Create(Menu, TweenInfo.new(0.35, Enum.EasingStyle.Back), {
+            Position = UDim2.new(0, 15, 0.5, -245)
         }):Play()
     end
-    
-    local function onVehicleLeave()
-        currentVehicle = nil
-        ToggleBtn.Visible = false
-        
-        if isMenuVisible then
-            isMenuVisible = false
-            TweenService:Create(MenuFrame, TweenInfo.new(0.3), {
-                Position = UDim2.new(-0.5, 0, 0.5, -275)
-            }):Play()
-            task.delay(0.3, function()
-                MenuFrame.Visible = false
-            end)
-        end
-        
-        showNotif("🚶 Keluar dari Kendaraan", Color3.fromRGB(150, 150, 200))
+
+    local function closeMenu()
+        isMenuOpen = false
+        TweenService:Create(Menu, TweenInfo.new(0.25), {
+            Position = UDim2.new(0, -320, 0.5, -245)
+        }):Play()
+        task.delay(0.3, function() Menu.Visible = false end)
     end
-    
-    -- ========================================
-    -- SPEED DISPLAY UPDATE
-    -- ========================================
-    
-    RunService.Heartbeat:Connect(function()
-        local vehicle = getVehicle()
-        
-        if vehicle ~= currentVehicle then
-            if vehicle then
-                onVehicleEnter(vehicle)
-            else
-                onVehicleLeave()
-            end
+
+    FloatBtn.MouseButton1Click:Connect(function()
+        if isMenuOpen then closeMenu() else openMenu() end
+    end)
+
+    CloseBtn.MouseButton1Click:Connect(closeMenu)
+
+    UserInputService.InputBegan:Connect(function(inp, gp)
+        if gp then return end
+        if inp.KeyCode == Enum.KeyCode.F1 then
+            if isMenuOpen then closeMenu() else openMenu() end
         end
-        
-        -- Update speed display
-        if vehicle then
-            local primaryPart = vehicle.PrimaryPart or vehicle:FindFirstChild("VehicleSeat")
-            if primaryPart and primaryPart:IsA("BasePart") then
-                local speed = math.floor(primaryPart.Velocity.Magnitude * 3.6)
-                currentSpeed = speed
-                SpeedValue.Text = speed .. " km/h"
-                
-                -- Color based on speed
-                if speed > 200 then
-                    SpeedValue.TextColor3 = Color3.fromRGB(255, 50, 50)
-                    StatusDot.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-                elseif speed > 100 then
-                    SpeedValue.TextColor3 = Color3.fromRGB(255, 150, 0)
-                    StatusDot.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+    end)
+
+    -- ===== HEARTBEAT (detection + speed update + god mode) =====
+    RunService.Heartbeat:Connect(function()
+        local v = getVehicle()
+
+        -- Vehicle enter/leave detection
+        if v ~= prevVehicle then
+            if v then
+                -- entered vehicle
+                FloatBtn.Visible = true
+                showNotif("🚗 Kendaraan Terdeteksi! Ketuk tombol", Color3.fromRGB(120,0,255))
+
+                if autoTurbo3 then setMaxSpeed(v, SPEED_TURBO3)
+                elseif autoMaxSpeed then setMaxSpeed(v, SPEED_MAX) end
+            else
+                -- left vehicle
+                FloatBtn.Visible = false
+                if isMenuOpen then closeMenu() end
+                showNotif("🚶 Keluar kendaraan", Color3.fromRGB(150,150,200))
+            end
+            prevVehicle = v
+        end
+
+        -- Speed display
+        if v then
+            local root = v.PrimaryPart or v:FindFirstChildOfClass("BasePart")
+            if root then
+                local spd = math.floor(root.Velocity.Magnitude * 3.6)
+                SpeedVal.Text = spd .. " km/h"
+                if spd > 200 then
+                    SpeedVal.TextColor3 = Color3.fromRGB(255, 60, 60)
+                elseif spd > 100 then
+                    SpeedVal.TextColor3 = Color3.fromRGB(255, 165, 0)
                 else
-                    SpeedValue.TextColor3 = Color3.fromRGB(0, 255, 100)
-                    StatusDot.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+                    SpeedVal.TextColor3 = Color3.fromRGB(0, 255, 100)
                 end
             end
-            
-            -- Apply auto speed settings
-            if autoTurbo3 then
-                setVehicleSpeed(vehicle, TURBO3_SPEED)
-            elseif autoMaxSpeed then
-                setVehicleSpeed(vehicle, MAX_SPEED)
-            end
-        else
-            SpeedValue.Text = "0 km/h"
-            StatusDot.BackgroundColor3 = Color3.fromRGB(100, 100, 150)
+
+            -- Keep applying speed
+            if autoTurbo3 then setMaxSpeed(v, SPEED_TURBO3)
+            elseif autoMaxSpeed then setMaxSpeed(v, SPEED_MAX) end
         end
-        
-        -- God Mode Regeneration
+
+        -- God mode
         if godMode then
             local char = Player.Character
             if char then
-                local humanoid = char:FindFirstChild("Humanoid")
-                if humanoid and humanoid.Health < humanoid.MaxHealth then
-                    humanoid.Health = humanoid.MaxHealth
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.MaxHealth = math.huge
+                    hum.Health = math.huge
                 end
             end
         end
     end)
-    
-    -- ========================================
-    -- KEYBOARD SHORTCUTS
-    -- ========================================
-    
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        
-        if input.KeyCode == Enum.KeyCode.F1 then
-            toggleMenu()
-        end
-    end)
-    
-    -- Pulse animation for toggle button
-    task.spawn(function()
-        while true do
-            if ToggleBtn.Visible then
-                TweenService:Create(ToggleBtnStroke, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-                    Thickness = 4
-                }):Play()
-            end
-            task.wait(1)
-        end
-    end)
-    
-    print("✅ Xureny X Hub - Vehicle Control loaded!")
-    print("💡 Naiki kendaraan untuk mulai!")
-    print("⌨️ Tekan F1 untuk toggle menu")
+
+    print("[Xureny X Hub] ✅ Loaded! Naiki kendaraan | F1 = toggle menu")
 end
 
--- Start Loading Animation
-task.spawn(animateLoading)
+-- ===== JALANKAN LOADING =====
+task.spawn(runLoading)
