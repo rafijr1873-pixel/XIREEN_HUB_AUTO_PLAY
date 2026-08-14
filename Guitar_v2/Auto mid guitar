@@ -1,0 +1,189 @@
+--[[ 
+ROBLOX GUITAR AUTO-PLAYER (MIDI VERSION)
+Instruksi: Masukkan Link Direct MIDI (.mid) ke TextBox lalu tekan Play.
+]]
+
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+
+-- KONFIGURASI KEYMAP (SESUAI GAMBAR)
+local Layout = {
+    -- Baris 1 (Shift Symbols)
+    "~", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "+",
+    -- Baris 2 (Upper Letters)
+    "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "{", "}", "|",
+    -- Baris 3 (Numbers/Lower Symbols)
+    "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=",
+    -- Baris 4 (Lower Letters)
+    "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "[", "]", "\\",
+    -- Baris 5 (Middle Row)
+    "a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'", ":", "\"",
+    -- Baris 6 (Bottom Row)
+    "z", "x", "c", "v", "b", "n", "m", ",", ".", "/", "<", ">", "?"
+}
+
+-- GUI SETUP
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local MainFrame = Instance.new("Frame", ScreenGui)
+local ToggleBtn = Instance.new("TextButton", ScreenGui)
+local Title = Instance.new("TextLabel", MainFrame)
+local UrlInput = Instance.new("TextBox", MainFrame)
+local PlayBtn = Instance.new("TextButton", MainFrame)
+local StopBtn = Instance.new("TextButton", MainFrame)
+local Status = Instance.new("TextLabel", MainFrame)
+
+-- Styling
+MainFrame.Size = UDim2.new(0, 350, 0, 220)
+MainFrame.Position = UDim2.new(0.5, -175, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+ToggleBtn.Size = UDim2.new(0, 70, 0, 35)
+ToggleBtn.Position = UDim2.new(0, 10, 0.1, 0)
+ToggleBtn.Text = "MENU"
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ToggleBtn.TextColor3 = Color3.new(1,1,1)
+
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Title.Text = "GUITAR AUTO-PLAY MIDI"
+Title.TextColor3 = Color3.new(1, 1, 1)
+
+UrlInput.Size = UDim2.new(0.9, 0, 0, 45)
+UrlInput.Position = UDim2.new(0.05, 0, 0.25, 0)
+UrlInput.PlaceholderText = "Paste .mid URL (Github/Discord)"
+UrlInput.Text = ""
+
+PlayBtn.Size = UDim2.new(0.4, 0, 0, 45)
+PlayBtn.Position = UDim2.new(0.05, 0, 0.55, 0)
+PlayBtn.Text = "PLAY MIDI"
+PlayBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+PlayBtn.TextColor3 = Color3.new(1,1,1)
+
+StopBtn.Size = UDim2.new(0.4, 0, 0, 45)
+StopBtn.Position = UDim2.new(0.55, 0, 0.55, 0)
+StopBtn.Text = "STOP"
+StopBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+StopBtn.TextColor3 = Color3.new(1,1,1)
+
+Status.Size = UDim2.new(1, 0, 0, 30)
+Status.Position = UDim2.new(0, 0, 0.85, 0)
+Status.Text = "Status: Standby"
+Status.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+
+-- MIDI PARSER CORE
+local isPlaying = false
+
+local function parseMidi(data)
+    local notes = {}
+    local pos = 1
+    
+    local function read(n)
+        local res = data:sub(pos, pos + n - 1)
+        pos = pos + n
+        return res
+    end
+    
+    local function readByte() return string.byte(read(1)) end
+    local function readVlq()
+        local val = 0
+        repeat
+            local b = readByte()
+            val = bit32.bor(bit32.lshift(val, 7), bit32.band(b, 0x7F))
+        until b < 128
+        return val
+    end
+
+    if read(4) ~= "MThd" then return nil end
+    pos = pos + 4 
+    local format = readByte() * 256 + readByte()
+    local tracks = readByte() * 256 + readByte()
+    local division = readByte() * 256 + readByte()
+
+    for i = 1, tracks do
+        while pos <= #data and read(4) ~= "MTrk" do pos = pos + 1 end
+        if pos > #data then break end
+        
+        local trackLen = readByte()*16777216 + readByte()*65536 + readByte()*256 + readByte()
+        local trackEnd = pos + trackLen
+        local tick = 0
+        
+        while pos < trackEnd do
+            tick = tick + readVlq()
+            local status = readByte()
+            
+            if status == 0xFF then -- Meta
+                pos = pos + 1 + readVlq()
+            elseif status >= 0x80 then
+                local type = bit32.band(status, 0xF0)
+                local channel = bit32.band(status, 0x0F)
+                local p1 = readByte()
+                local p2 = (type ~= 0xC0 and type ~= 0xD0) and readByte() or 0
+                
+                if type == 0x90 and p2 > 0 then -- Note On
+                    table.insert(notes, {time = tick * (0.5/division), note = p1})
+                end
+            end
+        end
+    end
+    table.sort(notes, function(a,b) return a.time < b.time end)
+    return notes
+end
+
+-- SIMULASI TEKAN TOMBOL (MOBILE COMPATIBLE)
+local function press(key)
+    if not key then return end
+    VirtualInputManager:SendKeyEvent(true, key, false, game)
+    task.wait(0.01)
+    VirtualInputManager:SendKeyEvent(false, key, false, game)
+end
+
+-- LOGIC UTAMA
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+StopBtn.MouseButton1Click:Connect(function()
+    isPlaying = false
+    Status.Text = "Status: Stopped"
+end)
+
+PlayBtn.MouseButton1Click:Connect(function()
+    if isPlaying then return end
+    
+    local url = UrlInput.Text
+    if url == "" then Status.Text = "Status: Masukkan URL!"; return end
+    
+    Status.Text = "Status: Downloading..."
+    local success, content = pcall(function() return game:HttpGet(url) end)
+    
+    if not success then Status.Text = "Status: Download Gagal!"; return end
+    
+    local song = parseMidi(content)
+    if not song then Status.Text = "Status: File Bukan MIDI!"; return end
+    
+    isPlaying = true
+    Status.Text = "Status: Playing..."
+    local startTime = tick()
+    
+    task.spawn(function()
+        for _, event in ipairs(song) do
+            if not isPlaying then break end
+            
+            local elapsed = tick() - startTime
+            if event.time > elapsed then
+                task.wait(event.time - elapsed)
+            end
+            
+            -- Mapping MIDI note ke Layout Gambar (Otomatis Transpose)
+            -- Kita ambil nada tengah MIDI (60) sebagai patokan
+            local index = (event.note - 36) % #Layout + 1
+            press(Layout[index])
+        end
+        isPlaying = false
+        Status.Text = "Status: Finished"
+    end)
+end)
